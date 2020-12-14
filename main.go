@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -15,17 +18,17 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/client/metadata"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/kelseyhightower/envconfig"
 )
 
 type EnvConfig struct {
-	Target  string
-	Port    int    `default:"8080"`
-	Service string `default:"es"`
+	Target     string
+	Port       int    `default:"8080"`
+	Service    string `default:"es"`
+	Vault      string
+	VaultToken string
 }
 
 type AppConfig struct {
@@ -35,13 +38,28 @@ type AppConfig struct {
 	DialTimeout     time.Duration
 }
 
+type GeneratedVaultCreds struct {
+	Data struct {
+		AccessKey     string `json:"access_key"`
+		SecretKey     string `json:"secret_key"`
+		SecurityToken string `json:"security_token"`
+	} `json:"data"`
+}
+
 // NewSigningProxy proxies requests to AWS services which require URL signing using the provided credentials
-func NewSigningProxy(target *url.URL, creds *credentials.Credentials, region string, appConfig AppConfig) *httputil.ReverseProxy {
+func NewSigningProxy(target *url.URL, e EnvConfig, region string, appConfig AppConfig) *httputil.ReverseProxy {
 	director := func(req *http.Request) {
 		// Rewrite request to desired server host
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.Host = target.Host
+
+		creds := NewVaultCredChain(e)
+		if _, err := creds.Get(); err != nil {
+			// We couldn't get any credentials
+			log.Panic(err)
+			return
+		}
 
 		// To perform the signing, we leverage aws-sdk-go
 		// aws.request performs more functions than we need here
@@ -167,10 +185,10 @@ func main() {
 	// Get credentials:
 	// Environment variables > local aws config file > remote role provider
 	// https://github.com/aws/aws-sdk-go/blob/master/aws/defaults/defaults.go#L88
-	creds := defaults.CredChain(defaults.Config(), defaults.Handlers())
+	creds := NewVaultCredChain(e)
 	if _, err = creds.Get(); err != nil {
 		// We couldn't get any credentials
-		fmt.Println(err)
+		log.Panic(err)
 		return
 	}
 
@@ -182,8 +200,67 @@ func main() {
 	}
 
 	// Start the proxy server
-	proxy := NewSigningProxy(targetURL, creds, region, appC)
+	proxy := NewSigningProxy(targetURL, e, region, appC)
 	listenString := fmt.Sprintf(":%v", *portFlag)
-	fmt.Printf("Listening on %v\n", listenString)
+	log.Printf("Listening on %v\n", listenString)
 	http.ListenAndServe(listenString, proxy)
+}
+
+func fetchSTSCredentials(e EnvConfig) (*GeneratedVaultCreds, error) {
+	generatedVaultCreds := &GeneratedVaultCreds{}
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/al-postman/creds/hackday-proxy", e.Vault), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("X-Vault-Token", e.VaultToken)
+	r, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if r.StatusCode > 299 {
+		return nil, fmt.Errorf("encountered: %d", r.StatusCode)
+	}
+	err = json.NewDecoder(r.Body).Decode(generatedVaultCreds)
+	if err != nil {
+		return nil, err
+	}
+
+	return generatedVaultCreds, nil
+}
+
+func NewVaultCredChain(e EnvConfig) *credentials.Credentials {
+	verboseErrors := false
+	return credentials.NewCredentials(&credentials.ChainProvider{
+		VerboseErrors: aws.BoolValue(&verboseErrors),
+		Providers: []credentials.Provider{
+			&VaultCredentialProvider{EnvConfig: e},
+		},
+	})
+}
+
+type VaultCredentialProvider struct {
+	EnvConfig       EnvConfig
+	AccessKey       string
+	SecretAccessKey string
+	SessionToken    string
+}
+
+func (v *VaultCredentialProvider) Retrieve() (credentials.Value, error) {
+	res, err := fetchSTSCredentials(v.EnvConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return credentials.Value{
+		AccessKeyID:     res.Data.AccessKey,
+		SecretAccessKey: res.Data.SecretKey,
+		SessionToken:    res.Data.SecurityToken,
+	}, nil
+}
+
+func (v *VaultCredentialProvider) IsExpired() bool {
+	// TODO this is random for now
+	rand.Seed(time.Now().UnixNano())
+	return rand.Intn(2) == 1
 }
