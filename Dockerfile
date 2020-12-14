@@ -1,14 +1,13 @@
-## aws-signing-proxy
-FROM scratch
-MAINTAINER Chris Lunsford <cllunsford@gmail.com>
+# Builder
+FROM golang:alpine
+WORKDIR /build
+COPY . /build
+RUN GOOS=linux go build -o aws-signing-proxy .
 
-# Add ca-certificates.crt for https
-ADD ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-
-# Add executable
-ADD aws-signing-proxy /
-
-# Default listening port
+# Lean container
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /
+COPY --from=0 /build/aws-signing-proxy .
 EXPOSE 8080
-
 ENTRYPOINT ["/aws-signing-proxy"]
