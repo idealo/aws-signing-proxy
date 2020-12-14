@@ -137,12 +137,6 @@ func main() {
 	if err := envconfig.Process("ASP", &e); err != nil {
 		log.Fatal(err.Error())
 	}
-	if val, ok := os.LookupEnv("AWS_TARGET"); ok {
-		e.Target = val
-	}
-	if val, ok := os.LookupEnv("AWS_SERVICE"); ok {
-		e.Service = val
-	}
 
 	var targetFlag = flag.String("target", e.Target, "target url to proxy to")
 	var portFlag = flag.Int("port", e.Port, "listening port for proxy")
