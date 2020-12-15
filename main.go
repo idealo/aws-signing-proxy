@@ -209,7 +209,8 @@ func main() {
 func fetchSTSCredentials(e EnvConfig) (*GeneratedVaultCreds, error) {
 	generatedVaultCreds := &GeneratedVaultCreds{}
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/al-postman/creds/hackday-proxy", e.Vault), nil)
+	vaultTargetUrl := fmt.Sprintf("%s/v1/al-postman/creds/hackday-proxy", e.Vault)
+	req, err := http.NewRequest("GET", vaultTargetUrl , nil)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +220,7 @@ func fetchSTSCredentials(e EnvConfig) (*GeneratedVaultCreds, error) {
 		return nil, err
 	}
 	if r.StatusCode > 299 {
-		return nil, fmt.Errorf("encountered: %d", r.StatusCode)
+		return nil, fmt.Errorf("encountered error while connecting to Vault '%s'. Status-Code: %d", vaultTargetUrl, r.StatusCode)
 	}
 	err = json.NewDecoder(r.Body).Decode(generatedVaultCreds)
 	if err != nil {
