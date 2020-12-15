@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -39,7 +38,8 @@ type AppConfig struct {
 }
 
 type GeneratedVaultCreds struct {
-	Data struct {
+	LeaseDuration int `json:"lease_duration"`
+	Data          struct {
 		AccessKey     string `json:"access_key"`
 		SecretKey     string `json:"secret_key"`
 		SecurityToken string `json:"security_token"`
@@ -192,10 +192,10 @@ func main() {
 	}
 
 	// Region order of precident:
-	// regionFlag > os.Getenv("AWS_REGION") > "us-west-2"
+	// regionFlag > os.Getenv("AWS_REGION") > "eu-central-1"
 	region := *regionFlag
 	if len(region) == 0 {
-		region = "us-west-2"
+		region = "eu-central-1"
 	}
 
 	// Start the proxy server
@@ -240,6 +240,7 @@ func NewVaultCredChain(e EnvConfig) *credentials.Credentials {
 }
 
 type VaultCredentialProvider struct {
+	ExpirationDate  time.Time
 	EnvConfig       EnvConfig
 	AccessKey       string
 	SecretAccessKey string
@@ -252,6 +253,8 @@ func (v *VaultCredentialProvider) Retrieve() (credentials.Value, error) {
 		log.Fatal(err)
 	}
 
+	v.ExpirationDate = time.Now().Add((time.Duration(res.LeaseDuration) - 60) * time.Second)
+
 	return credentials.Value{
 		AccessKeyID:     res.Data.AccessKey,
 		SecretAccessKey: res.Data.SecretKey,
@@ -260,7 +263,5 @@ func (v *VaultCredentialProvider) Retrieve() (credentials.Value, error) {
 }
 
 func (v *VaultCredentialProvider) IsExpired() bool {
-	// TODO this is random for now
-	rand.Seed(time.Now().UnixNano())
-	return rand.Intn(2) == 1
+	return time.Now().After(v.ExpirationDate)
 }
