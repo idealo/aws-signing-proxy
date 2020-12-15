@@ -47,15 +47,14 @@ type GeneratedVaultCreds struct {
 }
 
 // NewSigningProxy proxies requests to AWS services which require URL signing using the provided credentials
-func NewSigningProxy(target *url.URL, e EnvConfig, region string, appConfig AppConfig) *httputil.ReverseProxy {
+func NewSigningProxy(target *url.URL, credentials *credentials.Credentials, region string, appConfig AppConfig) *httputil.ReverseProxy {
 	director := func(req *http.Request) {
 		// Rewrite request to desired server host
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.Host = target.Host
 
-		creds := NewVaultCredChain(e)
-		if _, err := creds.Get(); err != nil {
+		if _, err := credentials.Get(); err != nil {
 			// We couldn't get any credentials
 			log.Panic(err)
 			return
@@ -65,7 +64,7 @@ func NewSigningProxy(target *url.URL, e EnvConfig, region string, appConfig AppC
 		// aws.request performs more functions than we need here
 		// we only populate enough of the fields to successfully
 		// sign the request
-		config := aws.NewConfig().WithCredentials(creds).WithRegion(region)
+		config := aws.NewConfig().WithCredentials(credentials).WithRegion(region)
 
 		clientInfo := metadata.ClientInfo{
 			ServiceName: appConfig.Service,
@@ -200,7 +199,8 @@ func main() {
 	}
 
 	// Start the proxy server
-	proxy := NewSigningProxy(targetURL, e, region, appC)
+	credentials := NewVaultCredChain(e)
+	proxy := NewSigningProxy(targetURL, credentials, region, appC)
 	listenString := fmt.Sprintf(":%v", *portFlag)
 	log.Printf("Listening on %v\n", listenString)
 	http.ListenAndServe(listenString, proxy)
