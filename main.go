@@ -204,6 +204,9 @@ func main() {
 	proxy := NewSigningProxy(targetURL, credentials, region, appC)
 	listenString := fmt.Sprintf(":%v", *portFlag)
 	log.Printf("Listening on %v\n", listenString)
+	log.Printf("- Forwarding Traffic to '%s'\n", targetURL)
+	log.Printf("- Using Credentials from from Vault '%s' with credentialsPath '%s'\n", e.VaultUrl, e.VaultCredentialsPath)
+
 	http.ListenAndServe(listenString, proxy)
 }
 
