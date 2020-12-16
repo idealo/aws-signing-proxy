@@ -34,7 +34,6 @@ func NewSigningProxy(config Config) *httputil.ReverseProxy {
 		DialContext: (&net.Dialer{
 			Timeout:   config.DialTimeout,
 			KeepAlive: 30 * time.Second,
-			DualStack: true,
 		}).DialContext,
 		MaxIdleConns:        100,
 		IdleConnTimeout:     config.IdleConnTimeout,
