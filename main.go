@@ -23,11 +23,12 @@ import (
 )
 
 type EnvConfig struct {
-	Target     string
-	Port       int    `default:"8080"`
-	Service    string `default:"es"`
-	Vault      string
-	VaultToken string
+	TargetUrl            string `split_words:"true"`
+	Port                 int    `default:"8080"`
+	Service              string `default:"es"`
+	VaultUrl             string `split_words:"true"` // 'https://vaulthost'
+	VaultAuthToken       string `split_words:"true"` // auth-token for accessing Vault
+	VaultCredentialsPath string `split_words:"true"` // path were aws credentials can be generated/retrieved (e.g: 'aws/creds/my-role')
 }
 
 type AppConfig struct {
@@ -155,7 +156,7 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	var targetFlag = flag.String("target", e.Target, "target url to proxy to")
+	var targetFlag = flag.String("target", e.TargetUrl, "target url to proxy to")
 	var portFlag = flag.Int("port", e.Port, "listening port for proxy")
 	var serviceFlag = flag.String("service", e.Service, "AWS Service.")
 	var regionFlag = flag.String("region", os.Getenv("AWS_REGION"), "AWS region for credentials")
@@ -209,12 +210,12 @@ func main() {
 func fetchSTSCredentials(e EnvConfig) (*GeneratedVaultCreds, error) {
 	generatedVaultCreds := &GeneratedVaultCreds{}
 	client := &http.Client{}
-	vaultTargetUrl := fmt.Sprintf("%s/v1/al-postman/creds/hackday-proxy", e.Vault)
-	req, err := http.NewRequest("GET", vaultTargetUrl , nil)
+	vaultTargetUrl := fmt.Sprintf("%s/v1/%s", e.VaultUrl, e.VaultCredentialsPath)
+	req, err := http.NewRequest("GET", vaultTargetUrl, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("X-Vault-Token", e.VaultToken)
+	req.Header.Add("X-Vault-Token", e.VaultAuthToken)
 	r, err := client.Do(req)
 	if err != nil {
 		return nil, err
