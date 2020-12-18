@@ -33,6 +33,10 @@ func main() {
 	var targetFlag = flag.String("target", e.TargetUrl, "target url to signingProxy to")
 	var portFlag = flag.Int("port", e.Port, "listening port for signingProxy")
 	var serviceFlag = flag.String("service", e.Service, "AWS Service.")
+	var vaultUrlFlag = flag.String("vaultUrl", e.VaultUrl, "base url of vault e.g. 'https://foo.vault.invalid'")
+	var vaultPathFlag = flag.String("vaultPath", e.VaultCredentialsPath, "path for credentials e.g. '/some-aws-engine/creds/some-aws-role'")
+	var vaultAuthTokenFlag = flag.String("vaultToken", e.VaultAuthToken, "token for authenticating with vault (NOTE: use the env variable ASP_VAULT_AUTH_TOKEN instead)")
+
 	var regionFlag = flag.String("region", os.Getenv("AWS_REGION"), "AWS region for credentials")
 	var flushInterval = flag.Duration("flush-interval", 0, "Flush interval to flush to the client while copying the response body.")
 	var idleConnTimeout = flag.Duration("idle-conn-timeout", 90*time.Second, "the maximum amount of time an idle (keep-alive) connection will remain idle before closing itself. Zero means no limit.")
@@ -49,6 +53,23 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
+	// Validate vault base Url
+	if len(*vaultUrlFlag) == 0 {
+		log.Fatal("requires base URL to vault. please use the -url flag or the env variable")
+	}
+	_, err = url.Parse(*vaultUrlFlag)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(*vaultPathFlag) == 0 {
+		log.Fatal("requires path for vault secret. please use the -path flag or the env variable")
+	}
+
+	if len(*vaultAuthTokenFlag) == 0 {
+		log.Fatal("requires auth token for vault. please use the -token flag or the env variable")
+	}
+
 	// Region order of precident:
 	// regionFlag > os.Getenv("AWS_REGION") > "eu-central-1"
 	region := *regionFlag
@@ -57,9 +78,9 @@ func main() {
 	}
 
 	vaultClient := vault.NewVaultClient().
-		WithBaseUrl(e.VaultUrl).
-		WithToken(e.VaultAuthToken).
-		Read(e.VaultCredentialsPath)
+		WithBaseUrl(*vaultUrlFlag).
+		WithToken(*vaultAuthTokenFlag).
+		Read(*vaultPathFlag)
 
 	signingProxy := proxy.NewSigningProxy(proxy.Config{
 		Target:          targetURL,
