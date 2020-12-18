@@ -12,12 +12,18 @@ type ReadClient interface {
 }
 
 func NewVaultCredChain(rc ReadClient) *credentials.Credentials {
+	providers := []credentials.Provider{
+		&credentials.EnvProvider{},                                        // query environment AWS_ACCESS_ID etc.
+		&credentials.SharedCredentialsProvider{Filename: "", Profile: ""}, // use ~/.aws/credentials
+	}
+	if rc != nil {
+		providers = append(providers, NewVaultCredentialProvider(rc)) // query vault
+	}
 	verboseErrors := false
+
 	return credentials.NewCredentials(&credentials.ChainProvider{
 		VerboseErrors: aws.BoolValue(&verboseErrors),
-		Providers: []credentials.Provider{
-			NewVaultCredentialProvider(rc),
-		},
+		Providers:     providers,
 	})
 }
 

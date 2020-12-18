@@ -30,57 +30,45 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	var targetFlag = flag.String("target", e.TargetUrl, "target url to signingProxy to")
-	var portFlag = flag.Int("port", e.Port, "listening port for signingProxy")
-	var serviceFlag = flag.String("service", e.Service, "AWS Service.")
-	var vaultUrlFlag = flag.String("vaultUrl", e.VaultUrl, "base url of vault e.g. 'https://foo.vault.invalid'")
-	var vaultPathFlag = flag.String("vaultPath", e.VaultCredentialsPath, "path for credentials e.g. '/some-aws-engine/creds/some-aws-role'")
-	var vaultAuthTokenFlag = flag.String("vaultToken", e.VaultAuthToken, "token for authenticating with vault (NOTE: use the env variable ASP_VAULT_AUTH_TOKEN instead)")
+	var targetFlag = flag.String("target", e.TargetUrl, "target url to proxy to (e.g. foo.eu-central-1.es.amazonaws.com)")
+	var portFlag = flag.Int("port", e.Port, "listening port for proxy (e.g. 3000)")
+	var serviceFlag = flag.String("service", e.Service, "AWS Service (e.g. es)")
+	var vaultUrlFlag = flag.String("vaultUrl", e.VaultUrl, "base url of vault (e.g. 'https://foo.vault.invalid')")
+	var vaultPathFlag = flag.String("vaultPath", e.VaultCredentialsPath, "path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')")
+	var vaultAuthTokenFlag = flag.String("vaultToken", e.VaultAuthToken, "token for authenticating with vault (NOTE: use the environment variable ASP_VAULT_AUTH_TOKEN instead)")
 
-	var regionFlag = flag.String("region", os.Getenv("AWS_REGION"), "AWS region for credentials")
-	var flushInterval = flag.Duration("flush-interval", 0, "Flush interval to flush to the client while copying the response body.")
-	var idleConnTimeout = flag.Duration("idle-conn-timeout", 90*time.Second, "the maximum amount of time an idle (keep-alive) connection will remain idle before closing itself. Zero means no limit.")
-	var dialTimeout = flag.Duration("dial-timeout", 30*time.Second, "The maximum amount of time a dial will wait for a connect to complete.")
+	var regionFlag = flag.String("region", os.Getenv("AWS_REGION"), "AWS region for credentials (e.g. eu-central-1)")
+	var flushInterval = flag.Duration("flush-interval", 0, "non essential: flush interval to flush to the client while copying the response body.")
+	var idleConnTimeout = flag.Duration("idle-conn-timeout", 90*time.Second, "non essential: the maximum amount of time an idle (keep-alive) connection will remain idle before closing itself. zero means no limit.")
+	var dialTimeout = flag.Duration("dial-timeout", 30*time.Second, "non essential: the maximum amount of time a dial will wait for a connect to complete.")
 
 	flag.Parse()
 
 	// Validate target URL
-	if len(*targetFlag) == 0 {
-		log.Fatal("Requires target URL to signingProxy to. Please use the -target flag")
+	if anyFlagEmpty(*serviceFlag, *targetFlag) {
+		log.Fatal("required parameter target (e.g. foo.eu-central-1.es.amazonaws.com) OR service (e.g. es) missing!")
 	}
 	targetURL, err := url.Parse(*targetFlag)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
-	// Validate vault base Url
-	if len(*vaultUrlFlag) == 0 {
-		log.Fatal("requires base URL to vault. please use the -url flag or the env variable")
-	}
-	_, err = url.Parse(*vaultUrlFlag)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if len(*vaultPathFlag) == 0 {
-		log.Fatal("requires path for vault secret. please use the -path flag or the env variable")
-	}
-
-	if len(*vaultAuthTokenFlag) == 0 {
-		log.Fatal("requires auth token for vault. please use the -token flag or the env variable")
-	}
-
-	// Region order of precident:
+	// Region order of precedent:
 	// regionFlag > os.Getenv("AWS_REGION") > "eu-central-1"
 	region := *regionFlag
-	if len(region) == 0 {
+	if !anyFlagEmpty(region) {
 		region = "eu-central-1"
 	}
 
-	vaultClient := vault.NewVaultClient().
-		WithBaseUrl(*vaultUrlFlag).
-		WithToken(*vaultAuthTokenFlag).
-		Read(*vaultPathFlag)
+	var vaultClient *vault.ReadClient
+	if anyFlagEmpty(*vaultUrlFlag, *vaultPathFlag, *vaultAuthTokenFlag) {
+		log.Println("warning: disabling vault credentials source due to missing flags/environment variables!")
+	} else {
+		vaultClient = vault.NewVaultClient().
+			WithBaseUrl(*vaultUrlFlag).
+			WithToken(*vaultAuthTokenFlag).
+			Read(*vaultPathFlag)
+	}
 
 	signingProxy := proxy.NewSigningProxy(proxy.Config{
 		Target:          targetURL,
@@ -97,4 +85,13 @@ func main() {
 	log.Printf("- Using Credentials from from Vault '%s' with credentialsPath '%s'\n", e.VaultUrl, e.VaultCredentialsPath)
 
 	log.Fatal(http.ListenAndServe(listenString, signingProxy))
+}
+
+func anyFlagEmpty(flags ...string) bool {
+	for _, flag := range flags {
+		if len(flag) == 0 {
+			return true
+		}
+	}
+	return false
 }
