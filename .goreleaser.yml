@@ -1,8 +1,20 @@
 builds:
   - env:
       - CGO_ENABLED=0
-    main: ./cmd/aws-signing-proxy/main.go
+  - main: ./cmd/aws-signing-proxy/main.go
+    id: "aws-signing-proxy"
     binary: aws-signing-proxy
+    goos:
+      - linux
+      - darwin
+      - windows
+  - main: ./cmd/vault-env-cred-provider/main.go
+    id: "vault-env-cred-provider"
+    binary: vault-env-cred-provider
+    goos:
+      - linux
+      - darwin
+      - windows
 archive:
   replacements:
     darwin: Darwin
