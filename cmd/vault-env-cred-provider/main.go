@@ -29,14 +29,6 @@ type RefreshedCredentials struct {
 	} `json:"data"`
 }
 
-//{
-//"Version": 1,
-//"AccessKeyId": "an AWS access key",
-//"SecretAccessKey": "your AWS secret access key",
-//"SessionToken": "the AWS session token for temporary credentials",
-//"Expiration": "ISO8601 timestamp when the credentials expire"
-//}
-
 type OutputCredentials struct {
 	Version         int    `json:"Version"`
 	AccessKeyId     string `json:"AccessKeyId"`
@@ -58,7 +50,7 @@ func main() {
 
 	flag.Parse()
 
-	// Validate target URL
+	// Validate vault base Url
 	if len(*urlFlag) == 0 {
 		log.Fatal("requires base URL to vault. please use the -url flag or the env variable")
 	}
