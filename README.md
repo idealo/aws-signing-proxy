@@ -37,13 +37,15 @@ The primary use case for this program is as a credential provider for AWS toolin
 
 1. Export the required env variables:
 ```
-export ASP_VAULT_AUTH_TOKEN=someTokenWhichAllowsYouToAccessVault; \
-export ASP_VAULT_URL=https://vault.url.invalid; \
-export ASP_TARGET_URL=https://someAWSServiceSupportingSignedHttpRequests; \
+export ASP_VAULT_AUTH_TOKEN=someTokenWhichAllowsYouToAccessVault
+export ASP_VAULT_URL=https://vault.url.invalid
+export ASP_TARGET_URL=https://someAWSServiceSupportingSignedHttpRequests
 ```
 2. Create an aws config file with the following contents:
+```
 [some-aws-profile-name]
 credential_process = /path/to/vault-env-cred-provider
+```
 
 ### Docker
 You can find the built image at: https://hub.docker.com/repository/docker/roechi/aws-signing-proxy
