@@ -1,11 +1,22 @@
 aws-signing-proxy
 =================
 
-A transparent proxy to AWS services which uses short-lived credentials retrieved from vault in order to forward requests as signed http request to AWS.
+A transparent proxy to AWS services which forward requests as signed http request to AWS services.
+ 
+For AWS credentials it supports:
+* [Static environment based AWS credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html#envvars-set)  
+* [AWS credential files](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where)
+* Fetching short-lived credentials from a vault set up with an [AWS secrets engine & sts-assumerole](https://www.vaultproject.io/docs/secrets/aws#sts-assumerole)
 
-For ready-to-use binaries have a look at releases. Additionally, we provide a docker image which can be used both in a test setup and as a sidecar in kubernetes.
+For ready-to-use binaries have a look at releases. Additionally, we provide a docker image which can be used both in a 
+test setup and as a sidecar in kubernetes.
 
-In addition to the proxy you may also use `vault-env-cred-provider` as an [credential provider for AWS tooling](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sourcing-external.html).
+In addition to the proxy you may also use `vault-env-cred-provider` as an 
+[credential provider for AWS tooling](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sourcing-external.html).
+
+❗NOTE: the provided pre-built mac os binaries might fail with name resolution issues on your apple machine if you are 
+using a (corporate) VPN. This will not occur on linux/windows/docker. 
+If you are affected: either use the provided docker image or build the binaries on your machine. 
 
 # Build & Run
 
