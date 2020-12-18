@@ -4,8 +4,6 @@ before:
 builds:
   - main: ./cmd/aws-signing-proxy/main.go
     id: "aws-signing-proxy"
-    env:
-      - CGO_ENABLED=0
     binary: aws-signing-proxy
     goarch:
       - amd64
@@ -15,8 +13,6 @@ builds:
       - windows
   - main: ./cmd/vault-env-cred-provider/main.go
     id: "vault-env-cred-provider"
-    env:
-      - CGO_ENABLED=0
     binary: vault-env-cred-provider
     goarch:
       - amd64
