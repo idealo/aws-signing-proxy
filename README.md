@@ -23,6 +23,10 @@ ASP_VAULT_CREDENTIALS_PATH=/an-aws-engine-in-vault/creds/a-role-defined-aws; \
 aws-signing-proxy
 ```
 
+### Docker
+You can find the built image at: https://hub.docker.com/repository/docker/roechi/aws-signing-proxy
+Make sure to provide all required ENV variables (`ASP_VAULT_AUTH_TOKEN`, `ASP_VAULT_URL`, `ASP_TARGET_URL`, `ASP_SERVICE`, `AWS_REGION`, `ASP_VAULT_CREDENTIALS_PATH`).
+
 ## License
 
 This project is based on https://github.com/cllunsford/aws-signing-proxy which is licensed as follows:
