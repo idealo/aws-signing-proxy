@@ -3,7 +3,7 @@ module github.com/roechi/aws-signing-proxy
 go 1.15
 
 require (
-	github.com/aws/aws-sdk-go v1.8.27-0.20170518205204-98b5026c3dac
+	github.com/aws/aws-sdk-go v1.36.11
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-ini/ini v1.62.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
