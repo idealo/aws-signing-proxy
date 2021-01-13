@@ -1,14 +1,14 @@
 aws-signing-proxy
 =================
 
-A transparent proxy to AWS services which forward requests as signed http request to AWS services.
+A transparent proxy which forwards and signs http requests to AWS services.
  
-For AWS credentials it supports:
+Supported AWS credentials:
 * [Static environment based AWS credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html#envvars-set)  
 * [AWS credential files](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where)
 * Fetching short-lived credentials from a vault set up with an [AWS secrets engine & sts-assumerole](https://www.vaultproject.io/docs/secrets/aws#sts-assumerole)
 
-For ready-to-use binaries have a look at releases. Additionally, we provide a docker image which can be used both in a 
+For ready-to-use binaries have a look at releases. Additionally, we provide a _Docker image_ which can be used both in a 
 test setup and as a sidecar in kubernetes.
 
 In addition to the proxy you may also use `vault-env-cred-provider` as an 
