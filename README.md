@@ -1,5 +1,6 @@
 aws-signing-proxy
 =================
+![Docker Image CI](https://github.com/idealo/aws-signing-proxy/workflows/Docker%20Image%20CI/badge.svg)
 
 A transparent proxy which forwards and signs http requests to AWS services.
  
