@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"fmt"
 	"github.com/roechi/aws-signing-proxy/pkg/vault/internal"
 	"net/http"
 )
@@ -55,6 +56,45 @@ func (c *Client) Read(path string) *ReadClient {
 	}
 
 	return r
+}
+
+type WriteClient struct {
+	path       string
+	postClient *internal.PostRequest
+}
+
+type kubernetesAuthLoginRequest struct {
+	Role string `json:"role"`
+	Jwt  string `json:"jwt"`
+}
+
+func (c *Client) KubernetesAuthLogin(k8sAuthMethodName, role, jwt string) *WriteClient {
+	if c.httpClient == nil {
+		c.httpClient = http.DefaultClient
+	}
+
+	request := &kubernetesAuthLoginRequest{
+		Role: role,
+		Jwt:  jwt,
+	}
+
+	postClient := c.restClient.
+		WithBaseUrl(c.baseUrl).
+		WithClient(c.httpClient).
+		Post().
+		WithPath(fmt.Sprintf("auth/%s/login", k8sAuthMethodName)).
+		WithContent(request)
+
+	r := &WriteClient{
+		postClient: postClient,
+		path:       k8sAuthMethodName,
+	}
+
+	return r
+}
+
+func (w *WriteClient) Into(result interface{}) error {
+	return w.postClient.Do(result)
 }
 
 func (r *ReadClient) Into(result interface{}) error {

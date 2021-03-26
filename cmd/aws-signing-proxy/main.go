@@ -21,6 +21,8 @@ type EnvConfig struct {
 	VaultUrl             string `split_words:"true"` // 'https://vaulthost'
 	VaultAuthToken       string `split_words:"true"` // auth-token for accessing Vault
 	VaultCredentialsPath string `split_words:"true"` // path were aws credentials can be generated/retrieved (e.g: 'aws/creds/my-role')
+	KubernetesAuthPath   string `split_words:"true"`
+	KubernetesAuthRole   string `split_words:"true"`
 }
 
 func main() {
@@ -36,6 +38,8 @@ func main() {
 	var vaultUrlFlag = flag.String("vaultUrl", e.VaultUrl, "base url of vault (e.g. 'https://foo.vault.invalid')")
 	var vaultPathFlag = flag.String("vaultPath", e.VaultCredentialsPath, "path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')")
 	var vaultAuthTokenFlag = flag.String("vaultToken", e.VaultAuthToken, "token for authenticating with vault (NOTE: use the environment variable ASP_VAULT_AUTH_TOKEN instead)")
+	var kubernetesAuthMountPathFlag = flag.String("kubernetesAuthPath", e.KubernetesAuthPath, "path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')")
+	var kubernetesAuthRoleFlag = flag.String("kubernetesAuthRole", e.KubernetesAuthRole, "token for authenticating with vault (NOTE: use the environment variable ASP_VAULT_AUTH_TOKEN instead)")
 
 	var regionFlag = flag.String("region", os.Getenv("AWS_REGION"), "AWS region for credentials (e.g. eu-central-1)")
 	var flushInterval = flag.Duration("flush-interval", 0, "non essential: flush interval to flush to the client while copying the response body.")
@@ -44,6 +48,13 @@ func main() {
 
 	flag.Parse()
 
+	if !anyFlagEmpty(*vaultAuthTokenFlag) {
+		// static vault token use case
+	} else if !anyFlagEmpty(*kubernetesAuthMountPathFlag) && !anyFlagEmpty(*kubernetesAuthRoleFlag) {
+		// kubernetes auth use case
+	} else {
+		// deactivate vault & use aws standards
+	}
 	// Validate target URL
 	if anyFlagEmpty(*serviceFlag, *targetFlag) {
 		log.Fatal("required parameter target (e.g. foo.eu-central-1.es.amazonaws.com) OR service (e.g. es) missing!")
