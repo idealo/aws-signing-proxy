@@ -73,7 +73,7 @@ Note that:
 * There is no need to specify AWS_ACCESS_KEY_ID etc.
 
 ### Docker
-You can find the built image at: https://hub.docker.com/repository/docker/roechi/aws-signing-proxy
+You can find the built image at: https://hub.docker.com/r/idealo/aws-signing-proxy/
 Make sure to provide all required ENV variables (`ASP_VAULT_AUTH_TOKEN`, `ASP_VAULT_URL`, `ASP_TARGET_URL`, `ASP_SERVICE`, `AWS_REGION`, `ASP_VAULT_CREDENTIALS_PATH`).
 
 ## License
