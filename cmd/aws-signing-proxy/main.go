@@ -96,9 +96,9 @@ func main() {
 func provideHealthEndpoint(h string) {
 	http.HandleFunc("/status/health", func(w http.ResponseWriter, request *http.Request) {
 		w.WriteHeader(200)
-		_, _ = w.Write([]byte("ok"))
+		_, _ = w.Write([]byte("{\"status\":\"ok\"}"))
 	})
-	func() { log.Fatal(http.ListenAndServe(h, nil)) }()
+	log.Fatal(http.ListenAndServe(h, nil))
 }
 
 func anyFlagEmpty(flags ...string) bool {
