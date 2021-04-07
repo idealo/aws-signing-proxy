@@ -17,6 +17,7 @@ import (
 type EnvConfig struct {
 	TargetUrl            string `split_words:"true"`
 	Port                 int    `default:"8080"`
+	HealthPort           int    `default:"8081"`
 	Service              string `default:"es"`
 	VaultUrl             string `split_words:"true"` // 'https://vaulthost'
 	VaultAuthToken       string `split_words:"true"` // auth-token for accessing Vault
@@ -32,6 +33,7 @@ func main() {
 
 	var targetFlag = flag.String("target", e.TargetUrl, "target url to proxy to (e.g. foo.eu-central-1.es.amazonaws.com)")
 	var portFlag = flag.Int("port", e.Port, "listening port for proxy (e.g. 3000)")
+	var healthPortFlag = flag.Int("healthPort", e.HealthPort, "Health port for proxy (e.g. 8081)")
 	var serviceFlag = flag.String("service", e.Service, "AWS Service (e.g. es)")
 	var vaultUrlFlag = flag.String("vaultUrl", e.VaultUrl, "base url of vault (e.g. 'https://foo.vault.invalid')")
 	var vaultPathFlag = flag.String("vaultPath", e.VaultCredentialsPath, "path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')")
@@ -80,11 +82,24 @@ func main() {
 		AuthClient:      vaultClient,
 	})
 	listenString := fmt.Sprintf(":%v", *portFlag)
+	healthPortString := fmt.Sprintf(":%v", *healthPortFlag)
 	log.Printf("Listening on %v\n", listenString)
 	log.Printf("- Forwarding Traffic to '%s'\n", targetURL)
 	log.Printf("- Using Credentials from from Vault '%s' with credentialsPath '%s'\n", e.VaultUrl, e.VaultCredentialsPath)
 
+	go provideHealthEndpoint(healthPortString)
+
 	log.Fatal(http.ListenAndServe(listenString, signingProxy))
+
+}
+
+func provideHealthEndpoint(h string) {
+	http.HandleFunc("/status/health", func(w http.ResponseWriter, request *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("{\"status\":\"ok\"}"))
+	})
+	log.Fatal(http.ListenAndServe(h, nil))
 }
 
 func anyFlagEmpty(flags ...string) bool {
