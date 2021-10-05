@@ -11,13 +11,13 @@ type ReadClient interface {
 	Into(result interface{}) error
 }
 
-func NewVaultCredChain(rc ReadClient) *credentials.Credentials {
+func NewCredChain(rc ReadClient) *credentials.Credentials {
 	providers := []credentials.Provider{
 		&credentials.EnvProvider{},                                        // query environment AWS_ACCESS_ID etc.
 		&credentials.SharedCredentialsProvider{Filename: "", Profile: ""}, // use ~/.aws/credentials
 	}
 	if rc != nil {
-		providers = append(providers, NewVaultCredentialProvider(rc)) // query vault
+		providers = append(providers, NewCredentialProvider(rc))
 	}
 	verboseErrors := false
 
@@ -27,13 +27,13 @@ func NewVaultCredChain(rc ReadClient) *credentials.Credentials {
 	})
 }
 
-func NewVaultCredentialProvider(rc ReadClient) *VaultCredentialProvider {
-	return &VaultCredentialProvider{
+func NewCredentialProvider(rc ReadClient) *CredentialProvider {
+	return &CredentialProvider{
 		client: rc,
 	}
 }
 
-type VaultCredentialProvider struct {
+type CredentialProvider struct {
 	client          ReadClient
 	ExpirationDate  time.Time
 	AccessKey       string
@@ -50,7 +50,7 @@ type RefreshedCredentials struct {
 	} `json:"data"`
 }
 
-func (v *VaultCredentialProvider) Retrieve() (credentials.Value, error) {
+func (v *CredentialProvider) Retrieve() (credentials.Value, error) {
 	c := &RefreshedCredentials{}
 	err := v.client.Into(c)
 	if err != nil {
@@ -66,6 +66,6 @@ func (v *VaultCredentialProvider) Retrieve() (credentials.Value, error) {
 	}, nil
 }
 
-func (v *VaultCredentialProvider) IsExpired() bool {
+func (v *CredentialProvider) IsExpired() bool {
 	return time.Now().After(v.ExpirationDate)
 }

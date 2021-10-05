@@ -48,7 +48,7 @@ func NewSigningProxy(config Config) *httputil.ReverseProxy {
 }
 
 func director(config Config) func(req *http.Request) {
-	vaultCredentials := NewVaultCredChain(config.AuthClient)
+	vaultCredentials := NewCredChain(config.AuthClient)
 
 	return func(req *http.Request) {
 		// Rewrite request to desired server host
