@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
+	"github.com/roechi/aws-signing-proxy/pkg/oidc"
 	"github.com/roechi/aws-signing-proxy/pkg/proxy"
 	"github.com/roechi/aws-signing-proxy/pkg/vault"
 	"log"
@@ -10,8 +12,6 @@ import (
 	"net/url"
 	"os"
 	"time"
-
-	"github.com/kelseyhightower/envconfig"
 )
 
 type EnvConfig struct {
@@ -19,10 +19,22 @@ type EnvConfig struct {
 	Port                 int    `default:"8080"`
 	HealthPort           int    `default:"8081"`
 	Service              string `default:"es"`
+	CredentialsProvider  string `split_words:"true"`
 	VaultUrl             string `split_words:"true"` // 'https://vaulthost'
 	VaultAuthToken       string `split_words:"true"` // auth-token for accessing Vault
 	VaultCredentialsPath string `split_words:"true"` // path were aws credentials can be generated/retrieved (e.g: 'aws/creds/my-role')
+	OpenIdAuthServerUrl  string `split_words:"true"`
+	OpenIdClientId       string `split_words:"true"`
+	OpenIdClientSecret   string `split_words:"true"`
+	RoleArn              string `split_words:"true"`
 }
+
+type CredentialsProvider string
+
+const (
+	OIDC  CredentialsProvider = "oidc"
+	Vault CredentialsProvider = "vault"
+)
 
 func main() {
 	// Adding envconfig to allow setting key vars via ENV
@@ -35,9 +47,19 @@ func main() {
 	var portFlag = flag.Int("port", e.Port, "listening port for proxy (e.g. 3000)")
 	var healthPortFlag = flag.Int("healthPort", e.HealthPort, "Health port for proxy (e.g. 8081)")
 	var serviceFlag = flag.String("service", e.Service, "AWS Service (e.g. es)")
+
+	var credentialProviderFlag = flag.String("credentialsProvider", e.CredentialsProvider, "Either retrieve credentials via OpenID or Vault. Valid values are: oidc, vault")
+
+	// Vault
 	var vaultUrlFlag = flag.String("vaultUrl", e.VaultUrl, "base url of vault (e.g. 'https://foo.vault.invalid')")
 	var vaultPathFlag = flag.String("vaultPath", e.VaultCredentialsPath, "path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')")
 	var vaultAuthTokenFlag = flag.String("vaultToken", e.VaultAuthToken, "token for authenticating with vault (NOTE: use the environment variable ASP_VAULT_AUTH_TOKEN instead)")
+
+	// openID Connect
+	var openIdAuthServerUrlFlag = flag.String("openIdAuthServerUrl", e.OpenIdAuthServerUrl, "The authorization server url")
+	var openIdClientIdFlag = flag.String("openIdClientId", e.OpenIdClientId, "OAuth client id")
+	var openIdClientSecretFlag = flag.String("openIdClientSecret", e.OpenIdClientSecret, "Oauth client secret")
+	var roleArnFlag = flag.String("roleArn", e.RoleArn, "AWS role ARN to assume to")
 
 	var regionFlag = flag.String("region", os.Getenv("AWS_REGION"), "AWS region for credentials (e.g. eu-central-1)")
 	var flushInterval = flag.Duration("flush-interval", 0, "non essential: flush interval to flush to the client while copying the response body.")
@@ -62,14 +84,30 @@ func main() {
 		region = "eu-central-1"
 	}
 
-	var vaultClient *vault.ReadClient
-	if anyFlagEmpty(*vaultUrlFlag, *vaultPathFlag, *vaultAuthTokenFlag) {
-		log.Println("warning: disabling vault credentials source due to missing flags/environment variables!")
+	var client proxy.ReadClient
+
+	if *credentialProviderFlag == "oidc" {
+		if anyFlagEmpty(*openIdClientIdFlag, *openIdClientSecretFlag, *openIdAuthServerUrlFlag, *roleArnFlag) {
+			log.Fatal("Missing some needed flags for OIDC! Either: openIdClientId, openIdClientSecret, openIdAuthServerUrl or roleArn")
+		} else {
+			client = oidc.NewOIDCClient(*regionFlag).
+				WithAuthServerUrl(*openIdAuthServerUrlFlag).
+				WithClientSecret(*openIdClientSecretFlag).
+				WithClientId(*openIdClientIdFlag).
+				WithRoleArn(*roleArnFlag).
+				Read()
+		}
+	} else if *credentialProviderFlag == "vault" {
+		if anyFlagEmpty(*vaultUrlFlag, *vaultPathFlag, *vaultAuthTokenFlag) {
+			log.Println("warning: disabling vault credentials source due to missing flags/environment variables!")
+		} else {
+			client = vault.NewVaultClient().
+				WithBaseUrl(*vaultUrlFlag).
+				WithToken(*vaultAuthTokenFlag).
+				Read(*vaultPathFlag)
+		}
 	} else {
-		vaultClient = vault.NewVaultClient().
-			WithBaseUrl(*vaultUrlFlag).
-			WithToken(*vaultAuthTokenFlag).
-			Read(*vaultPathFlag)
+		log.Fatal("No valid credentials provider given! Valid providers are: oidc, vault")
 	}
 
 	signingProxy := proxy.NewSigningProxy(proxy.Config{
@@ -79,7 +117,7 @@ func main() {
 		FlushInterval:   *flushInterval,
 		IdleConnTimeout: *idleConnTimeout,
 		DialTimeout:     *dialTimeout,
-		AuthClient:      vaultClient,
+		AuthClient:      client,
 	})
 	listenString := fmt.Sprintf(":%v", *portFlag)
 	healthPortString := fmt.Sprintf(":%v", *healthPortFlag)
