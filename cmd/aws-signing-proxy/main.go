@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/idealo/aws-signing-proxy/pkg/oidc"
+	"github.com/idealo/aws-signing-proxy/pkg/proxy"
+	"github.com/idealo/aws-signing-proxy/pkg/vault"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/roechi/aws-signing-proxy/pkg/oidc"
-	"github.com/roechi/aws-signing-proxy/pkg/proxy"
-	"github.com/roechi/aws-signing-proxy/pkg/vault"
 	"log"
 	"net/http"
 	"net/url"

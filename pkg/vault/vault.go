@@ -1,7 +1,7 @@
 package vault
 
 import (
-	"github.com/roechi/aws-signing-proxy/pkg/vault/internal"
+	"github.com/idealo/aws-signing-proxy/pkg/vault/internal"
 	"net/http"
 )
 

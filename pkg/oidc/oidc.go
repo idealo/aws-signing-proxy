@@ -6,8 +6,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
-	"github.com/roechi/aws-signing-proxy/pkg/oidc/internal"
-	"github.com/roechi/aws-signing-proxy/pkg/proxy"
+	"github.com/idealo/aws-signing-proxy/pkg/oidc/internal"
+	"github.com/idealo/aws-signing-proxy/pkg/proxy"
 	"net/http"
 	"time"
 )
