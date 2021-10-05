@@ -29,13 +29,6 @@ type EnvConfig struct {
 	RoleArn              string `split_words:"true"`
 }
 
-type CredentialsProvider string
-
-const (
-	OIDC  CredentialsProvider = "oidc"
-	Vault CredentialsProvider = "vault"
-)
-
 func main() {
 	// Adding envconfig to allow setting key vars via ENV
 	var e EnvConfig
@@ -141,8 +134,8 @@ func provideHealthEndpoint(h string) {
 }
 
 func anyFlagEmpty(flags ...string) bool {
-	for _, flag := range flags {
-		if len(flag) == 0 {
+	for _, cliFlag := range flags {
+		if len(cliFlag) == 0 {
 			return true
 		}
 	}
