@@ -42,7 +42,8 @@ type CredentialProvider struct {
 }
 
 type RefreshedCredentials struct {
-	LeaseDuration int `json:"lease_duration"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	LeaseDuration int       `json:"lease_duration"`
 	Data          struct {
 		AccessKey     string `json:"access_key"`
 		SecretKey     string `json:"secret_key"`
@@ -50,14 +51,14 @@ type RefreshedCredentials struct {
 	} `json:"data"`
 }
 
-func (v *CredentialProvider) Retrieve() (credentials.Value, error) {
+func (cp *CredentialProvider) Retrieve() (credentials.Value, error) {
 	c := &RefreshedCredentials{}
-	err := v.client.Into(c)
+	err := cp.client.Into(c)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	v.ExpirationDate = time.Now().Add((time.Duration(c.LeaseDuration) - 60) * time.Second)
+	cp.ExpirationDate = c.ExpiresAt
 
 	return credentials.Value{
 		AccessKeyID:     c.Data.AccessKey,
@@ -66,6 +67,6 @@ func (v *CredentialProvider) Retrieve() (credentials.Value, error) {
 	}, nil
 }
 
-func (v *CredentialProvider) IsExpired() bool {
-	return time.Now().After(v.ExpirationDate)
+func (cp *CredentialProvider) IsExpired() bool {
+	return time.Now().After(cp.ExpirationDate.Add(-time.Second * 60))
 }

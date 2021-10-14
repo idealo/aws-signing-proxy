@@ -73,7 +73,7 @@ func (c *ReadClient) Read() *ReadClient {
 	return c
 }
 
-func (c *ReadClient) retrieveShortLivedCreds(roleArn string, webToken string, roleSessionName string) *sts.Credentials {
+func (c *ReadClient) retrieveShortLivingCreds(roleArn string, webToken string, roleSessionName string) *sts.Credentials {
 	identity, err := c.stsClient.AssumeRoleWithWebIdentity(&sts.AssumeRoleWithWebIdentityInput{
 		RoleArn:          &roleArn,
 		RoleSessionName:  &roleSessionName,
@@ -101,7 +101,7 @@ func (c *ReadClient) Into(result interface{}) error {
 
 	stsCreds := cachedCredentials
 
-	refreshedCreds.LeaseDuration = int(stsCreds.Expiration.Sub(time.Now()).Seconds())
+	refreshedCreds.ExpiresAt = *stsCreds.Expiration
 	refreshedCreds.Data.AccessKey = *stsCreds.AccessKeyId
 	refreshedCreds.Data.SecretKey = *stsCreds.SecretAccessKey
 	refreshedCreds.Data.SecurityToken = *stsCreds.SessionToken
@@ -116,14 +116,15 @@ func RetrieveCredentialsAsync(c *ReadClient) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			cachedCredentials = c.retrieveShortLivedCreds(c.roleArn, res.IdToken, c.clientId)
-			log.Println("Refreshed short lived credentials.")
+			cachedCredentials = c.retrieveShortLivingCreds(c.roleArn, res.IdToken, c.clientId)
+			log.Println("Refreshed short living credentials.")
 		} else {
-			time.Sleep(30 * time.Second)
+			time.Sleep(10 * time.Second)
 		}
 	}
 }
 
 func isExpired(expiration *time.Time) bool {
-	return time.Now().Add(time.Minute * 5).After(*expiration)
+	// subtract 10 minutes from the actual expiration to retrieve every 55 minutes new credentials
+	return time.Now().After(expiration.Add(-time.Minute * 55))
 }
