@@ -40,7 +40,7 @@ type ReadClient struct {
 	getClient *internal.GetRequest
 }
 
-func (c *Client) Read(path string) *ReadClient {
+func (c *Client) ReadFrom(path string) *ReadClient {
 	if c.httpClient == nil {
 		c.httpClient = http.DefaultClient
 	}
@@ -59,7 +59,7 @@ func (c *Client) Read(path string) *ReadClient {
 	return r
 }
 
-func (r *ReadClient) Into(result interface{}) error {
+func (r *ReadClient) RefreshCredentials(result interface{}) error {
 	refreshedCreds := result.(*proxy.RefreshedCredentials)
 	err := r.getClient.Do(result)
 	refreshedCreds.ExpiresAt = time.Now().Add(time.Duration(refreshedCreds.LeaseDuration) * time.Second)

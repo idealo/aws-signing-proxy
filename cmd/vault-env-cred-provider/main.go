@@ -72,7 +72,7 @@ func main() {
 	err = vault.NewVaultClient().
 		WithBaseUrl(*urlFlag).
 		WithToken(*authTokenFlag).
-		Read(*pathFlag).Into(fetchedCredentials)
+		ReadFrom(*pathFlag).RefreshCredentials(fetchedCredentials)
 	if err != nil {
 		log.Fatal(err)
 	}

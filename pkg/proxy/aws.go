@@ -8,7 +8,7 @@ import (
 )
 
 type ReadClient interface {
-	Into(result interface{}) error
+	RefreshCredentials(result interface{}) error
 }
 
 func NewCredChain(rc ReadClient) *credentials.Credentials {
@@ -53,7 +53,7 @@ type RefreshedCredentials struct {
 
 func (cp *CredentialProvider) Retrieve() (credentials.Value, error) {
 	c := &RefreshedCredentials{}
-	err := cp.client.Into(c)
+	err := cp.client.RefreshCredentials(c)
 	if err != nil {
 		log.Fatal(err)
 	}

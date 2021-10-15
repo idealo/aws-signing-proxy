@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/go-co-op/gocron"
 	"github.com/idealo/aws-signing-proxy/pkg/oidc"
 	"github.com/idealo/aws-signing-proxy/pkg/proxy"
 	"github.com/idealo/aws-signing-proxy/pkg/vault"
@@ -89,9 +90,13 @@ func main() {
 				WithClientSecret(*openIdClientSecretFlag).
 				WithClientId(*openIdClientIdFlag).
 				WithRoleArn(*roleArnFlag).
-				Read()
+				Build()
 
-			go oidc.RetrieveCredentialsAsync(&oidcClient)
+			scheduler := gocron.NewScheduler(time.UTC)
+			_, err := scheduler.Every(10).Seconds().StartImmediately().Do(func() { oidc.RetrieveCredentialsAheadOfTime(&oidcClient) })
+			if err != nil {
+				log.Fatalf("Scheduled Task for retrieving refreshed OIDC credentials failed! %s", err)
+			}
 
 			client = &oidcClient
 			log.Printf("- Using Credentials from from OIDC with Oauth2 Server '%s'\n", e.OpenIdAuthServerUrl)
@@ -103,7 +108,7 @@ func main() {
 			client = vault.NewVaultClient().
 				WithBaseUrl(*vaultUrlFlag).
 				WithToken(*vaultAuthTokenFlag).
-				Read(*vaultPathFlag)
+				ReadFrom(*vaultPathFlag)
 			log.Printf("- Using Credentials from from Vault '%s' with credentialsPath '%s'\n", e.VaultUrl, e.VaultCredentialsPath)
 		}
 	} else {
