@@ -73,7 +73,7 @@ func main() {
 	// Region order of precedent:
 	// regionFlag > os.Getenv("AWS_REGION") > "eu-central-1"
 	region := *regionFlag
-	if !anyFlagEmpty(region) {
+	if anyFlagEmpty(region) {
 		region = "eu-central-1"
 	}
 
