@@ -99,6 +99,7 @@ func InitClient(region string) stsiface.STSAPI {
 func (c *ReadClient) RefreshCredentials(result interface{}) error {
 	refreshedCredentials := result.(*proxy.RefreshedCredentials)
 
+	RetrieveCredentials(c)
 	stsCredentials := cachedCredentials
 
 	refreshedCredentials.ExpiresAt = *stsCredentials.Expiration
@@ -109,7 +110,7 @@ func (c *ReadClient) RefreshCredentials(result interface{}) error {
 	return nil
 }
 
-func RetrieveCredentialsAheadOfTime(c *ReadClient) {
+func RetrieveCredentials(c *ReadClient) {
 	if cachedCredentials == nil || isExpired(cachedCredentials.Expiration) {
 		res, err := c.postRequest.Do()
 		if err != nil {
@@ -117,8 +118,6 @@ func RetrieveCredentialsAheadOfTime(c *ReadClient) {
 		}
 		cachedCredentials = c.retrieveShortLivingCredentialsFromAwsSts(c.roleArn, res.IdToken, c.clientId)
 		log.Println("Refreshed short living credentials.")
-	} else {
-		log.Println("Nothing to do.")
 	}
 }
 

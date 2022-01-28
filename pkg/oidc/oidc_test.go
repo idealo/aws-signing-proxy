@@ -41,7 +41,7 @@ func TestRetrieveCredentialsAheadOfTime(t *testing.T) {
 	}
 	client := readClient.Build()
 
-	RetrieveCredentialsAheadOfTime(client)
+	RetrieveCredentials(client)
 
 	var accessKeyId, secretAccessKey, sessionToken string
 	accessKeyId = "accessKeyId"
@@ -59,7 +59,7 @@ func TestRetrieveCredentialsAheadOfTime(t *testing.T) {
 	got := cachedCredentials
 
 	if !reflect.DeepEqual(cachedCredentials, want) {
-		t.Errorf("RetrieveCredentialsAheadOfTime() = %v, want %v", got, want)
+		t.Errorf("RetrieveCredentials() = %v, want %v", got, want)
 	}
 
 	defer mockServer.Close()
