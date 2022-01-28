@@ -1,8 +1,10 @@
 package vault
 
 import (
+	"github.com/idealo/aws-signing-proxy/pkg/proxy"
 	"github.com/idealo/aws-signing-proxy/pkg/vault/internal"
 	"net/http"
+	"time"
 )
 
 type Client struct {
@@ -38,7 +40,7 @@ type ReadClient struct {
 	getClient *internal.GetRequest
 }
 
-func (c *Client) Read(path string) *ReadClient {
+func (c *Client) ReadFrom(path string) *ReadClient {
 	if c.httpClient == nil {
 		c.httpClient = http.DefaultClient
 	}
@@ -57,6 +59,9 @@ func (c *Client) Read(path string) *ReadClient {
 	return r
 }
 
-func (r *ReadClient) Into(result interface{}) error {
-	return r.getClient.Do(result)
+func (r *ReadClient) RefreshCredentials(result interface{}) error {
+	refreshedCreds := result.(*proxy.RefreshedCredentials)
+	err := r.getClient.Do(result)
+	refreshedCreds.ExpiresAt = time.Now().Add(time.Duration(refreshedCreds.LeaseDuration) * time.Second)
+	return err
 }

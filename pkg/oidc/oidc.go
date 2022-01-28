@@ -8,14 +8,17 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
 	"github.com/idealo/aws-signing-proxy/pkg/oidc/internal"
 	"github.com/idealo/aws-signing-proxy/pkg/proxy"
+	"log"
 	"net/http"
 	"time"
 )
 
+var cachedCredentials *sts.Credentials
+
 type ReadClient struct {
 	restClient    *internal.RestClient
 	httpClient    *http.Client
-	postClient    *internal.PostRequest
+	postRequest   *internal.PostRequest
 	stsClient     stsiface.STSAPI
 	authServerUrl string
 	clientId      string
@@ -54,28 +57,32 @@ func (c *ReadClient) WithRoleArn(roleArn string) *ReadClient {
 	return c
 }
 
-func (c *ReadClient) Read() *ReadClient {
+func (c *ReadClient) Build() *ReadClient {
 	if c.httpClient == nil {
 		c.httpClient = http.DefaultClient
 	}
-	postClient := internal.NewRestClient().
+	postRequest := internal.NewRestClient().
 		WithBaseUrl(c.authServerUrl).
 		WithHttpClient(c.httpClient).
 		Post().
 		WithClientCredentials(c.clientId, c.clientSecret).
 		WithHeader("Content-Type", []string{"application/json"})
 
-	c.postClient = postClient
+	c.postRequest = postRequest
 
 	return c
 }
 
-func (r *ReadClient) retrieveShortLivingCreds(roleArn string, webToken string, roleSessionName string) *sts.Credentials {
-	identity, _ := r.stsClient.AssumeRoleWithWebIdentity(&sts.AssumeRoleWithWebIdentityInput{
+func (c *ReadClient) retrieveShortLivingCredentialsFromAwsSts(roleArn string, webToken string, roleSessionName string) *sts.Credentials {
+	identity, err := c.stsClient.AssumeRoleWithWebIdentity(&sts.AssumeRoleWithWebIdentityInput{
 		RoleArn:          &roleArn,
 		RoleSessionName:  &roleSessionName,
 		WebIdentityToken: &webToken,
 	})
+
+	if err != nil {
+		log.Printf("Something went wrong with the STS Client: %s\n", err)
+	}
 
 	return identity.Credentials
 }
@@ -89,17 +96,32 @@ func InitClient(region string) stsiface.STSAPI {
 	return sts.New(sess, aws.NewConfig().WithRegion(region))
 }
 
-func (r *ReadClient) Into(result interface{}) error {
-	refCreds := result.(*proxy.RefreshedCredentials)
+func (c *ReadClient) RefreshCredentials(result interface{}) error {
+	refreshedCredentials := result.(*proxy.RefreshedCredentials)
 
-	res, err := r.postClient.Do(internal.AuthServerResponse{})
+	RetrieveCredentials(c)
+	stsCredentials := cachedCredentials
 
-	stsCreds := r.retrieveShortLivingCreds(r.roleArn, res.IdToken, r.clientId)
+	refreshedCredentials.ExpiresAt = *stsCredentials.Expiration
+	refreshedCredentials.Data.AccessKey = *stsCredentials.AccessKeyId
+	refreshedCredentials.Data.SecretKey = *stsCredentials.SecretAccessKey
+	refreshedCredentials.Data.SecurityToken = *stsCredentials.SessionToken
 
-	refCreds.LeaseDuration = int(stsCreds.Expiration.Sub(time.Now()).Seconds())
-	refCreds.Data.AccessKey = *stsCreds.AccessKeyId
-	refCreds.Data.SecretKey = *stsCreds.SecretAccessKey
-	refCreds.Data.SecurityToken = *stsCreds.SessionToken
+	return nil
+}
 
-	return err
+func RetrieveCredentials(c *ReadClient) {
+	if cachedCredentials == nil || isExpired(cachedCredentials.Expiration) {
+		res, err := c.postRequest.Do()
+		if err != nil {
+			log.Fatal(err)
+		}
+		cachedCredentials = c.retrieveShortLivingCredentialsFromAwsSts(c.roleArn, res.IdToken, c.clientId)
+		log.Println("Refreshed short living credentials.")
+	}
+}
+
+func isExpired(expiration *time.Time) bool {
+	// subtract 5 minutes from the actual expiration to retrieve every 55 minutes new credentials
+	return time.Now().After(expiration.Add(-time.Minute * 5))
 }

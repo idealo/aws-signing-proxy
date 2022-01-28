@@ -59,10 +59,11 @@ func (p *PostRequest) WithClientCredentials(id string, secret string) *PostReque
 }
 
 type AuthServerResponse struct {
-	IdToken string `json:"idToken"`
+	IdToken   string `json:"idToken"`
+	ExpiresIn int    `json:"expires_in"`
 }
 
-func (p *PostRequest) Do(response interface{}) (*AuthServerResponse, error) {
+func (p *PostRequest) Do() (*AuthServerResponse, error) {
 	authServerUrl := p.httpClient.baseUrl
 	body, err := json.MarshalIndent(p.body, "", "")
 	if err != nil {
