@@ -16,19 +16,19 @@ import (
 )
 
 type EnvConfig struct {
-	TargetUrl                   string `split_words:"true"`
-	Port                        int    `default:"8080"`
-	HealthPort                  int    `default:"8081"`
-	Service                     string `default:"es"`
-	CredentialsProvider         string `split_words:"true"`
-	VaultUrl                    string `split_words:"true"` // 'https://vaulthost'
-	VaultAuthToken              string `split_words:"true"` // auth-token for accessing Vault
-	VaultCredentialsPath        string `split_words:"true"` // path were aws credentials can be generated/retrieved (e.g: 'aws/creds/my-role')
-	OpenIdAuthServerUrl         string `split_words:"true"`
-	OpenIdClientId              string `split_words:"true"`
-	OpenIdClientSecret          string `split_words:"true"`
-	AsyncOpenIdCredentialsFetch bool   `split_words:"true"`
-	RoleArn                     string `split_words:"true"`
+	TargetUrl             string `split_words:"true"`
+	Port                  int    `default:"8080"`
+	HealthPort            int    `default:"8081"`
+	Service               string `default:"es"`
+	CredentialsProvider   string `split_words:"true"`
+	VaultUrl              string `split_words:"true"` // 'https://vaulthost'
+	VaultAuthToken        string `split_words:"true"` // auth-token for accessing Vault
+	VaultCredentialsPath  string `split_words:"true"` // path were aws credentials can be generated/retrieved (e.g: 'aws/creds/my-role')
+	OpenIdAuthServerUrl   string `split_words:"true"`
+	OpenIdClientId        string `split_words:"true"`
+	OpenIdClientSecret    string `split_words:"true"`
+	OpenIdFetchCredsAsync bool   `split_words:"true"`
+	RoleArn               string `split_words:"true"`
 }
 
 type Flags struct {
@@ -95,6 +95,8 @@ func main() {
 				ReadFrom(*flags.VaultPath)
 			log.Printf("- Using Credentials from from Vault '%s' with credentialsPath '%s'\n", e.VaultUrl, e.VaultCredentialsPath)
 		}
+	} else {
+		log.Fatal("No valid credentials provider given! Valid providers are: oidc, vault")
 	}
 
 	signingProxy := proxy.NewSigningProxy(proxy.Config{
@@ -134,7 +136,7 @@ func parseFlags(flags *Flags, e EnvConfig) {
 	flags.OpenIdAuthServerUrl = flag.String("openIdAuthServerUrl", e.OpenIdAuthServerUrl, "The authorization server url")
 	flags.OpenIdClientId = flag.String("openIdClientId", e.OpenIdClientId, "OAuth client id")
 	flags.OpenIdClientSecret = flag.String("openIdClientSecret", e.OpenIdClientSecret, "Oauth client secret")
-	flags.AsyncOpenIdCredentialsFetch = flag.Bool("async-fetching", e.AsyncOpenIdCredentialsFetch, "Oauth client secret")
+	flags.AsyncOpenIdCredentialsFetch = flag.Bool("open-id-fetch-creds-async", e.OpenIdFetchCredsAsync, "Fetch AWS Credentials via OIDC asynchronously")
 	flags.RoleArn = flag.String("roleArn", e.RoleArn, "AWS role ARN to assume to")
 
 	flags.Region = flag.String("region", os.Getenv("AWS_REGION"), "AWS region for credentials (e.g. eu-central-1)")
@@ -160,6 +162,7 @@ func newOidcClient(flags *Flags, client proxy.ReadClient, e EnvConfig) proxy.Rea
 		if err != nil {
 			log.Fatalf("Scheduled Task for retrieving refreshed OIDC credentials failed! %s", err)
 		}
+		scheduler.StartAsync()
 	}
 
 	client = &oidcClient
