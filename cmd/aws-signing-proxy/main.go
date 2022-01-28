@@ -83,24 +83,29 @@ func main() {
 		if anyFlagEmpty(*openIdClientIdFlag, *openIdClientSecretFlag, *openIdAuthServerUrlFlag, *roleArnFlag) {
 			log.Fatal("Missing some needed flags for OIDC! Either: openIdClientId, openIdClientSecret, openIdAuthServerUrl or roleArn")
 		} else {
-			client = oidc.NewOIDCClient(*regionFlag).
+			var oidcClient oidc.ReadClient
+			oidcClient = *oidc.NewOIDCClient(*regionFlag).
 				WithAuthServerUrl(*openIdAuthServerUrlFlag).
 				WithClientSecret(*openIdClientSecretFlag).
 				WithClientId(*openIdClientIdFlag).
 				WithRoleArn(*roleArnFlag).
 				Read()
+
+			go oidc.RetrieveCredentialsAsync(&oidcClient)
+
+			client = &oidcClient
+			log.Printf("- Using Credentials from from OIDC with Oauth2 Server '%s'\n", e.OpenIdAuthServerUrl)
 		}
 	} else if *credentialProviderFlag == "vault" {
 		if anyFlagEmpty(*vaultUrlFlag, *vaultPathFlag, *vaultAuthTokenFlag) {
-			log.Println("warning: disabling vault credentials source due to missing flags/environment variables!")
+			log.Println("Warning: disabling vault credentials source due to missing flags/environment variables!")
 		} else {
 			client = vault.NewVaultClient().
 				WithBaseUrl(*vaultUrlFlag).
 				WithToken(*vaultAuthTokenFlag).
 				Read(*vaultPathFlag)
+			log.Printf("- Using Credentials from from Vault '%s' with credentialsPath '%s'\n", e.VaultUrl, e.VaultCredentialsPath)
 		}
-	} else {
-		log.Fatal("No valid credentials provider given! Valid providers are: oidc, vault")
 	}
 
 	signingProxy := proxy.NewSigningProxy(proxy.Config{
@@ -115,8 +120,7 @@ func main() {
 	listenString := fmt.Sprintf(":%v", *portFlag)
 	healthPortString := fmt.Sprintf(":%v", *healthPortFlag)
 	log.Printf("Listening on %v\n", listenString)
-	log.Printf("- Forwarding Traffic to '%s'\n", targetURL)
-	log.Printf("- Using Credentials from from Vault '%s' with credentialsPath '%s'\n", e.VaultUrl, e.VaultCredentialsPath)
+	log.Printf("Forwarding Traffic to '%s'\n", targetURL)
 
 	go provideHealthEndpoint(healthPortString)
 
