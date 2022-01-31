@@ -96,7 +96,7 @@ func main() {
 			log.Printf("- Using Credentials from from Vault '%s' with credentialsPath '%s'\n", e.VaultUrl, e.VaultCredentialsPath)
 		}
 	} else {
-		log.Fatal("No valid credentials provider given! Valid providers are: oidc, vault")
+		log.Println("Warning: Using static credentials is unsafe. Please consider using some short-living credentials mechanism like Vault or OIDC.")
 	}
 
 	signingProxy := proxy.NewSigningProxy(proxy.Config{
