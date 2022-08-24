@@ -52,14 +52,14 @@ func prepareCredentialsProcess() string {
 	var fileName string
 	if _, isSet := os.LookupEnv("AWS_SHARED_CREDENTIALS_FILE"); isSet {
 		fileName = os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-	}
+	} else {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalln(err)
+		}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalln(err)
+		fileName = homeDir + "/.aws/credentials"
 	}
-
-	fileName = homeDir + "/.aws/credentials"
 
 	content, _ := ini.Load(fileName)
 	section, _ := content.GetSection("default")
