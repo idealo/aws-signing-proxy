@@ -3,7 +3,10 @@ package proxy
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/processcreds"
+	"github.com/go-ini/ini"
 	"log"
+	"os"
 	"time"
 )
 
@@ -11,11 +14,29 @@ type ReadClient interface {
 	RefreshCredentials(result interface{}) error
 }
 
+type CustomCredentialProcessProvider struct {
+	credentials *credentials.Credentials
+}
+
+func (c *CustomCredentialProcessProvider) Retrieve() (credentials.Value, error) {
+	creds := processcreds.NewCredentials(prepareCredentialsProcess())
+	c.credentials = creds
+
+	value, _ := creds.Get()
+	return value, nil
+}
+
+func (c *CustomCredentialProcessProvider) IsExpired() bool {
+	return c.credentials.IsExpired()
+}
+
 func NewCredChain(rc ReadClient) *credentials.Credentials {
 	providers := []credentials.Provider{
 		&credentials.EnvProvider{},                                        // query environment AWS_ACCESS_ID etc.
 		&credentials.SharedCredentialsProvider{Filename: "", Profile: ""}, // use ~/.aws/credentials
+		&CustomCredentialProcessProvider{},
 	}
+
 	if rc != nil {
 		providers = append(providers, NewCredentialProvider(rc))
 	}
@@ -25,6 +46,25 @@ func NewCredChain(rc ReadClient) *credentials.Credentials {
 		VerboseErrors: aws.BoolValue(&verboseErrors),
 		Providers:     providers,
 	})
+}
+
+func prepareCredentialsProcess() string {
+	var fileName string
+	if _, isSet := os.LookupEnv("AWS_SHARED_CREDENTIALS_FILE"); isSet {
+		fileName = os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fileName = homeDir + "/.aws/credentials"
+
+	content, _ := ini.Load(fileName)
+	section, _ := content.GetSection("default")
+	key, _ := section.GetKey("credential_process")
+	return key.Value()
 }
 
 func NewCredentialProvider(rc ReadClient) *CredentialProvider {
