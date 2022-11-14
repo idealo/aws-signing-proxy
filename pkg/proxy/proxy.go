@@ -6,8 +6,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/client/metadata"
 	"github.com/aws/aws-sdk-go/aws/request"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
+	"go.uber.org/zap"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -48,7 +48,7 @@ func NewSigningProxy(config Config) *httputil.ReverseProxy {
 }
 
 func director(config Config) func(req *http.Request) {
-	vaultCredentials := NewCredChain(config.AuthClient)
+	credentials := NewCredChain(config.AuthClient)
 
 	return func(req *http.Request) {
 		// Rewrite request to desired server host
@@ -56,9 +56,9 @@ func director(config Config) func(req *http.Request) {
 		req.URL.Host = config.Target.Host
 		req.Host = config.Target.Host
 
-		if _, err := vaultCredentials.Get(); err != nil {
+		if _, err := credentials.Get(); err != nil {
 			// We couldn't get any credentials
-			log.Panic(err)
+			logger.Error("Something went wrong", zap.Error(err))
 			return
 		}
 
@@ -67,7 +67,7 @@ func director(config Config) func(req *http.Request) {
 		// we only populate enough of the fields to successfully
 		// sign the request
 		c := aws.NewConfig().
-			WithCredentials(vaultCredentials).
+			WithCredentials(credentials).
 			WithRegion(config.Region)
 
 		clientInfo := metadata.ClientInfo{
@@ -105,7 +105,7 @@ func director(config Config) func(req *http.Request) {
 		if req.Body != nil {
 			buf, err := ioutil.ReadAll(req.Body)
 			if err != nil {
-				log.Printf("error reading request body: %v\n", err)
+				logger.Error("Error reading request body", zap.Error(err))
 			}
 			req.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
 
@@ -122,7 +122,7 @@ func director(config Config) func(req *http.Request) {
 
 		// Perform the signing, updating awsReq in place
 		if err := awsReq.Sign(); err != nil {
-			log.Printf("error signing: %v\n", err)
+			logger.Error("Error while signing", zap.Error(err))
 		}
 
 		// Write the Signed Headers into the Original Request
