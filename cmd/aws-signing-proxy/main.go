@@ -8,6 +8,8 @@ import (
 	"github.com/idealo/aws-signing-proxy/pkg/proxy"
 	"github.com/idealo/aws-signing-proxy/pkg/vault"
 	"github.com/kelseyhightower/envconfig"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"log"
 	"net/http"
 	"net/url"
@@ -51,11 +53,22 @@ type Flags struct {
 	DialTimeout                 *time.Duration
 }
 
+var logger, _ = InitLogging()
+
+func InitLogging() (*zap.Logger, error) {
+	config := zap.NewProductionConfig()
+	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
+	return config.Build()
+}
+
 func main() {
+
+	defer logger.Sync()
+
 	// Adding envconfig to allow setting key vars via ENV
 	var e EnvConfig
 	if err := envconfig.Process("ASP", &e); err != nil {
-		log.Fatal(err.Error())
+		logger.Error(err.Error())
 	}
 
 	var flags = Flags{}
@@ -67,7 +80,7 @@ func main() {
 	}
 	targetURL, err := url.Parse(*flags.Target)
 	if err != nil {
-		log.Fatal(err.Error())
+		logger.Error(err.Error())
 	}
 
 	// Region order of precedent:
@@ -87,16 +100,16 @@ func main() {
 		}
 	} else if *flags.CredentialProvider == "vault" {
 		if anyFlagEmpty(*flags.VaultUrl, *flags.VaultPath, *flags.VaultAuthToken) {
-			log.Println("Warning: disabling vault credentials source due to missing flags/environment variables!")
+			logger.Warn("Disabling vault credentials source due to missing flags/environment variables.")
 		} else {
 			client = vault.NewVaultClient().
 				WithBaseUrl(*flags.VaultUrl).
 				WithToken(*flags.VaultAuthToken).
 				ReadFrom(*flags.VaultPath)
-			log.Printf("- Using Credentials from from Vault '%s' with credentialsPath '%s'\n", e.VaultUrl, e.VaultCredentialsPath)
+			logger.Info("Using Credentials from Vault.", zap.String("vault-url", e.VaultUrl), zap.String("path", e.VaultCredentialsPath))
 		}
 	} else {
-		log.Println("Warning: Using static credentials is unsafe. Please consider using some short-living credentials mechanism like Vault or OIDC.")
+		logger.Warn("Using static credentials is unsafe. Please consider using some short-living credentials mechanism like Vault or OIDC.")
 	}
 
 	signingProxy := proxy.NewSigningProxy(proxy.Config{
@@ -110,12 +123,13 @@ func main() {
 	})
 	listenString := fmt.Sprintf(":%v", *flags.Port)
 	healthPortString := fmt.Sprintf(":%v", *flags.HealthPort)
-	log.Printf("Listening on %v\n", listenString)
-	log.Printf("Forwarding Traffic to '%s'\n", targetURL)
+	logger.Info("Listening", zap.String("port", listenString))
+	logger.Info("Forwarding traffic", zap.String("target", targetURL.String()))
 
 	go provideHealthEndpoint(healthPortString)
 
-	log.Fatal(http.ListenAndServe(listenString, signingProxy))
+	err = http.ListenAndServe(listenString, signingProxy)
+	logger.Error("Something went wrong", zap.Error(err))
 
 }
 
@@ -160,13 +174,13 @@ func newOidcClient(flags *Flags, client proxy.ReadClient, e EnvConfig) proxy.Rea
 		scheduler := gocron.NewScheduler(time.UTC)
 		_, err := scheduler.Every(10).Seconds().StartImmediately().Do(func() { oidc.RetrieveCredentials(&oidcClient) })
 		if err != nil {
-			log.Fatalf("Scheduled Task for retrieving refreshed OIDC credentials failed! %s", err)
+			logger.Error("Scheduled Task for retrieving refreshed OIDC credentials failed", zap.Error(err))
 		}
 		scheduler.StartAsync()
 	}
 
 	client = &oidcClient
-	log.Printf("- Using Credentials from from OIDC with Oauth2 Server '%s'\n", e.OpenIdAuthServerUrl)
+	logger.Info("Using Credentials from from OIDC with Oauth2 server", zap.String("auth-server", e.OpenIdAuthServerUrl))
 	return client
 }
 
