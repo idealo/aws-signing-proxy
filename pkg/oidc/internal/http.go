@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"net/http"
+	"time"
 )
 
 type RestClient struct {
@@ -61,6 +64,14 @@ func (p *PostRequest) WithClientCredentials(id string, secret string) *PostReque
 type AuthServerResponse struct {
 	IdToken   string `json:"idToken"`
 	ExpiresIn int    `json:"expires_in"`
+}
+
+var logger, _ = InitLogging()
+
+func InitLogging() (*zap.Logger, error) {
+	config := zap.NewProductionConfig()
+	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
+	return config.Build()
 }
 
 func (p *PostRequest) Do() (*AuthServerResponse, error) {

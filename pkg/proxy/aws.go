@@ -3,29 +3,11 @@ package proxy
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/sony/gobreaker"
+	. "github.com/idealo/aws-signing-proxy/pkg/logging"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"strings"
 	"time"
 )
-
-var logger, _ = InitLogging()
-
-func InitLogging() (*zap.Logger, error) {
-	config := zap.NewProductionConfig()
-	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
-	return config.Build()
-}
-
-var breaker = initCircuitBreaker()
-
-func initCircuitBreaker() *gobreaker.CircuitBreaker {
-	st := gobreaker.Settings{
-		Name: "auth-server-circuit-breaker",
-	}
-	return gobreaker.NewCircuitBreaker(st)
-}
 
 type ReadClient interface {
 	RefreshCredentials(result interface{}) error
@@ -74,29 +56,16 @@ type RefreshedCredentials struct {
 func (cp *CredentialProvider) Retrieve() (credentials.Value, error) {
 	c := &RefreshedCredentials{}
 
-	_, err := breaker.Execute(
-		func() (interface{}, error) {
-			err := cp.client.RefreshCredentials(c)
-			return nil, err
-		})
-
-	logger.Info("State", zap.String("State", breaker.State().String()))
-	logger.Info("Count", zap.Int("Requests", int(breaker.Counts().Requests)))
-	logger.Info("State", zap.Int("TotalFailures", int(breaker.Counts().TotalFailures)))
-	logger.Info("State", zap.Int("ConsecutiveFailures", int(breaker.Counts().ConsecutiveFailures)))
-	logger.Info("State", zap.Int("ConsecutiveSuccesses", int(breaker.Counts().ConsecutiveSuccesses)))
-	logger.Info("State", zap.Int("TotalSuccesses", int(breaker.Counts().TotalSuccesses)))
+	err := cp.client.RefreshCredentials(c)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "circuit breaker is open") {
-			logger.Warn(
+			Logger.Warn(
 				"Request to authorization server failed. Circuit breaker is open.",
-				zap.String("name", breaker.Name()),
-				zap.String("state", breaker.State().String()),
 			)
 			return credentials.Value{}, nil
 		} else {
-			logger.Error("An error appeared", zap.Error(err))
+			Logger.Error("An error appeared", zap.Error(err))
 			return credentials.Value{}, err
 		}
 	}

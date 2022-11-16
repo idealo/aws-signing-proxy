@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"github.com/idealo/aws-signing-proxy/pkg/circuitbreaker"
 	"github.com/idealo/aws-signing-proxy/pkg/proxy"
 	"github.com/idealo/aws-signing-proxy/pkg/vault/internal"
 	"net/http"
@@ -59,9 +60,15 @@ func (c *Client) ReadFrom(path string) *ReadClient {
 	return r
 }
 
+var breaker = circuitbreaker.NewCircuitBreaker("vault-circuit-breaker")
+
 func (r *ReadClient) RefreshCredentials(result interface{}) error {
 	refreshedCreds := result.(*proxy.RefreshedCredentials)
-	err := r.getClient.Do(result)
+
+	_, err := breaker.Execute(func() (interface{}, error) {
+		return nil, r.getClient.Do(result)
+	})
+
 	refreshedCreds.ExpiresAt = time.Now().Add(time.Duration(refreshedCreds.LeaseDuration) * time.Second)
 	return err
 }

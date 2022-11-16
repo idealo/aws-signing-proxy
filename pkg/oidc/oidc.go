@@ -6,21 +6,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
+	"github.com/idealo/aws-signing-proxy/pkg/circuitbreaker"
+	. "github.com/idealo/aws-signing-proxy/pkg/logging"
 	"github.com/idealo/aws-signing-proxy/pkg/oidc/internal"
 	"github.com/idealo/aws-signing-proxy/pkg/proxy"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"net/http"
 	"time"
 )
-
-var logger, _ = InitLogging()
-
-func InitLogging() (*zap.Logger, error) {
-	config := zap.NewProductionConfig()
-	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
-	return config.Build()
-}
 
 var cachedCredentials *sts.Credentials
 
@@ -90,7 +83,7 @@ func (c *ReadClient) retrieveShortLivingCredentialsFromAwsSts(roleArn string, we
 	})
 
 	if err != nil {
-		logger.Error("Something went wrong with the STS Client", zap.Error(err))
+		Logger.Error("Something went wrong with the STS Client", zap.Error(err))
 	}
 
 	return identity.Credentials
@@ -122,14 +115,21 @@ func (c *ReadClient) RefreshCredentials(result interface{}) error {
 	return nil
 }
 
+var breaker = circuitbreaker.NewCircuitBreaker("oidc")
+
 func RetrieveCredentials(c *ReadClient) error {
 	if cachedCredentials == nil || isExpired(cachedCredentials.Expiration) {
-		response, err := c.postRequest.Do()
+
+		response, err := breaker.Execute(func() (interface{}, error) {
+			return c.postRequest.Do()
+		})
+
 		if err != nil {
 			return err
 		}
-		cachedCredentials = c.retrieveShortLivingCredentialsFromAwsSts(c.roleArn, response.IdToken, c.clientId)
-		logger.Info("Refreshed short living credentials.")
+
+		cachedCredentials = c.retrieveShortLivingCredentialsFromAwsSts(c.roleArn, response.(*internal.AuthServerResponse).IdToken, c.clientId)
+		Logger.Info("Refreshed short living credentials.")
 	}
 	return nil
 }
