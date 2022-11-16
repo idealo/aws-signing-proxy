@@ -1,0 +1,70 @@
+package circuitbreaker
+
+import (
+	. "github.com/idealo/aws-signing-proxy/pkg/logging"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/sony/gobreaker"
+	"go.uber.org/zap"
+	"strings"
+	"time"
+)
+
+type CircuitBreaker struct {
+	breaker *gobreaker.CircuitBreaker
+}
+
+func NewCircuitBreaker(name string) *CircuitBreaker {
+	st := gobreaker.Settings{
+		Name:    name,
+		Timeout: 60 * time.Second, // TODO
+	}
+	return &CircuitBreaker{breaker: gobreaker.NewCircuitBreaker(st)}
+}
+
+var (
+	cbStateGauge   = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "auth_circuit_breaker_state", Help: "State of the authorization circuit breaker"}, []string{"state", "name"})
+	cbCounterGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "auth_circuit_breaker_count", Help: "Circuit breaker request count"}, []string{"type"})
+)
+
+func (cb *CircuitBreaker) Execute(req func() (interface{}, error)) (interface{}, error) {
+
+	r, err := cb.breaker.Execute(req)
+
+	switch cb.breaker.State() {
+	case gobreaker.StateOpen:
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateOpen.String(), "name": cb.breaker.Name()}).Set(1)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateClosed.String(), "name": cb.breaker.Name()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateHalfOpen.String(), "name": cb.breaker.Name()}).Set(0)
+	case gobreaker.StateHalfOpen:
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateOpen.String(), "name": cb.breaker.Name()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateHalfOpen.String(), "name": cb.breaker.Name()}).Set(1)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateClosed.String(), "name": cb.breaker.Name()}).Set(0)
+	case gobreaker.StateClosed:
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateOpen.String(), "name": cb.breaker.Name()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateHalfOpen.String(), "name": cb.breaker.Name()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateClosed.String(), "name": cb.breaker.Name()}).Set(1)
+	}
+
+	cbCounterGauge.WithLabelValues("requests").Set(float64(cb.breaker.Counts().Requests))
+	cbCounterGauge.WithLabelValues("total_successes").Set(float64(cb.breaker.Counts().TotalSuccesses))
+	cbCounterGauge.WithLabelValues("total_failures").Set(float64(cb.breaker.Counts().TotalFailures))
+	cbCounterGauge.WithLabelValues("consecutive_successes").Set(float64(cb.breaker.Counts().ConsecutiveSuccesses))
+	cbCounterGauge.WithLabelValues("consecutive_failures").Set(float64(cb.breaker.Counts().ConsecutiveFailures))
+
+	if err != nil {
+		if strings.Contains(err.Error(), "circuit breaker is open") {
+			Logger.Warn(
+				"Request to authorization server failed. Circuit breaker is open.",
+				zap.String("name", cb.breaker.Name()),
+				zap.String("state", cb.breaker.State().String()),
+			)
+			return r, err
+		} else {
+			Logger.Error("An error appeared", zap.Error(err))
+			return r, err
+		}
+	}
+
+	return r, err
+}

@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/client/metadata"
 	"github.com/aws/aws-sdk-go/aws/request"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
+	. "github.com/idealo/aws-signing-proxy/pkg/logging"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net"
@@ -58,7 +59,7 @@ func director(config Config) func(req *http.Request) {
 
 		if _, err := credentials.Get(); err != nil {
 			// We couldn't get any credentials
-			logger.Error("Something went wrong", zap.Error(err))
+			Logger.Error("Something went wrong", zap.Error(err))
 			return
 		}
 
@@ -105,7 +106,7 @@ func director(config Config) func(req *http.Request) {
 		if req.Body != nil {
 			buf, err := ioutil.ReadAll(req.Body)
 			if err != nil {
-				logger.Error("Error reading request body", zap.Error(err))
+				Logger.Error("Error reading request body", zap.Error(err))
 			}
 			req.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
 
@@ -122,7 +123,7 @@ func director(config Config) func(req *http.Request) {
 
 		// Perform the signing, updating awsReq in place
 		if err := awsReq.Sign(); err != nil {
-			logger.Error("Error while signing", zap.Error(err))
+			Logger.Error("Error while signing", zap.Error(err))
 		}
 
 		// Write the Signed Headers into the Original Request
