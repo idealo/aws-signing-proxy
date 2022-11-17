@@ -5,8 +5,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sony/gobreaker"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCircuitBreakerOpenState(t *testing.T) {
@@ -85,4 +87,37 @@ auth_circuit_breaker_count{type="total_successes"} 10
 	if err := testutil.CollectAndCompare(cbCounterGauge, strings.NewReader(expectedCountMetric), "auth_circuit_breaker_count"); err != nil {
 		t.Errorf("unexpected collecting result:\n%s", err)
 	}
+}
+
+func TestCircuitBreakerFailureThresholdConfigParsing(t *testing.T) {
+
+	os.Setenv("ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD", "50")
+
+	breaker := NewCircuitBreaker("test-circuit-breaker")
+
+	for i := 0; i < 10; i++ {
+		breaker.Execute(func() (interface{}, error) {
+			return nil, errors.New("something went wrong")
+		})
+	}
+
+	assert.Equal(t, gobreaker.StateClosed, breaker.breaker.State())
+
+}
+
+func TestCircuitBreakerTimeoutConfigParsing(t *testing.T) {
+
+	os.Setenv("ASP_CIRCUIT_BREAKER_TIMEOUT", "300ms")
+
+	breaker := NewCircuitBreaker("test-circuit-breaker")
+
+	for i := 0; i < 10; i++ {
+		breaker.Execute(func() (interface{}, error) {
+			return nil, errors.New("something went wrong")
+		})
+	}
+
+	time.Sleep(310 * time.Millisecond)
+	assert.Equal(t, gobreaker.StateHalfOpen, breaker.breaker.State())
+
 }

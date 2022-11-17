@@ -6,6 +6,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sony/gobreaker"
 	"go.uber.org/zap"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -15,11 +17,47 @@ type CircuitBreaker struct {
 }
 
 func NewCircuitBreaker(name string) *CircuitBreaker {
+
+	timeout := getTimeout()
+	failureThreshold := getFailureThreshold()
+
 	st := gobreaker.Settings{
 		Name:    name,
-		Timeout: 60 * time.Second, // TODO
+		Timeout: timeout,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			return counts.ConsecutiveFailures > failureThreshold
+		},
 	}
 	return &CircuitBreaker{breaker: gobreaker.NewCircuitBreaker(st)}
+}
+
+func getFailureThreshold() uint32 {
+	var failures uint32 = 5
+	failuresStr, ok := os.LookupEnv("ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD")
+	if ok {
+		i, err := strconv.Atoi(failuresStr)
+		if err != nil {
+			Logger.Error("Failed parsing the circuit breaker failure count", zap.Error(err))
+			return failures
+		}
+		return uint32(i)
+	}
+	return failures
+}
+
+func getTimeout() time.Duration {
+	var timeout time.Duration
+	var err error
+
+	timeoutStr, ok := os.LookupEnv("ASP_CIRCUIT_BREAKER_TIMEOUT")
+	if ok {
+		timeout, err = time.ParseDuration(timeoutStr)
+		if err != nil {
+			Logger.Error("Failed parsing the circuit breaker timeout", zap.Error(err))
+			timeout = 0 // defaults to 60s
+		}
+	}
+	return timeout
 }
 
 var (
