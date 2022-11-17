@@ -17,11 +17,20 @@ Supported AWS credentials:
 For ready-to-use binaries have a look at releases. Additionally, we provide a _Docker image_ which can be used both in a
 test setup and as a sidecar in kubernetes.
 
+## 🎉 Version 2 Update 🎉
+
+* Version 2.0.0 comes 
+  * with a built-in circuit breaker for requesting credentials from either OIDC or Vault 
+  * with better error handling and panic recovery
+  * with json logging enabled by default
+
+##### Vault Env Cred Provider
+
 In addition to the proxy you may also use `vault-env-cred-provider` as an
 [credential provider for AWS tooling](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sourcing-external.html)
 .
 
-❗NOTE: the provided pre-built mac os binaries might fail with name resolution issues on your apple machine if you are
+❗NOTE: the provided pre-built macOS binaries might fail with name resolution issues on your apple machine if you are
 using a (corporate) VPN. This will not occur on linux/windows/docker. If you are affected: either use the provided
 docker image or build the binaries on your machine.
 
@@ -72,6 +81,16 @@ ASP_OPEN_ID_CLIENT_SECRET=someverysecurepassword; \
 aws-signing-proxy
 ```
 
+#### Adjusting the Circuit Breaker Behaviour
+
+If you want to adjust the built-in authorization server circuit breaker, you can set the following environment variables according to your needs. 
+
+The failure threshold defaults to 5 failed requests until the circuit is opened
+The timeout for keeping the circuit open defaults to 60s
+
+`ASP_ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD=5`
+`ASP_CIRCUIT_BREAKER_TIMEOUT=60s`
+
 #### vault-env-cred-provider
 
 This program can be used as
@@ -106,7 +125,7 @@ Note that:
 You can find the built image at: https://hub.docker.com/r/idealo/aws-signing-proxy/
 Make sure to provide all required ENV variables or flags!
 
-## License
+## Acknowledgement
 
 This project is based on https://github.com/cllunsford/aws-signing-proxy which is licensed as follows:
 
