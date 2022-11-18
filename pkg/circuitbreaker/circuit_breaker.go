@@ -67,7 +67,7 @@ var (
 
 func (cb *CircuitBreaker) Execute(req func() (interface{}, error)) (interface{}, error) {
 
-	r, err := cb.breaker.Execute(req)
+	response, err := cb.breaker.Execute(req)
 
 	switch cb.breaker.State() {
 	case gobreaker.StateOpen:
@@ -97,12 +97,12 @@ func (cb *CircuitBreaker) Execute(req func() (interface{}, error)) (interface{},
 				zap.String("name", cb.breaker.Name()),
 				zap.String("state", cb.breaker.State().String()),
 			)
-			return r, err
+			return response, err
 		} else {
 			Logger.Error("An error appeared", zap.Error(err))
-			return r, err
+			return response, err
 		}
 	}
 
-	return r, err
+	return response, err
 }
