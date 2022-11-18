@@ -109,6 +109,26 @@ func TestCircuitBreakerFailureThresholdConfigParsing(t *testing.T) {
 
 }
 
+func TestCircuitBreakerFailureThresholdConfigParsingWithInvalidValue(t *testing.T) {
+
+	os.Setenv("ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD", "fifty counts")
+
+	breaker := NewCircuitBreaker()
+
+	for i := 0; i <= 5; i++ {
+		breaker.Execute(func() (interface{}, error) {
+			return nil, errors.New("something went wrong")
+		})
+	}
+
+	assert.Equal(t, gobreaker.StateOpen, breaker.breaker.State())
+
+	defer t.Cleanup(func() {
+		os.Setenv("ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD", "")
+	})
+
+}
+
 func TestCircuitBreakerTimeoutConfigParsing(t *testing.T) {
 
 	os.Setenv("ASP_CIRCUIT_BREAKER_TIMEOUT", "300ms")
@@ -127,5 +147,28 @@ func TestCircuitBreakerTimeoutConfigParsing(t *testing.T) {
 	defer t.Cleanup(func() {
 		os.Setenv("ASP_CIRCUIT_BREAKER_TIMEOUT", "")
 	})
+
+}
+
+func TestCircuitBreakerTimeoutConfigParsingWithInvalidValue(t *testing.T) {
+
+	os.Setenv("ASP_CIRCUIT_BREAKER_TIMEOUT", "3000 mega fonzies")
+
+	breaker := NewCircuitBreaker()
+
+	for i := 0; i < 10; i++ {
+		breaker.Execute(func() (interface{}, error) {
+			return nil, errors.New("something went wrong")
+		})
+	}
+
+	assert.Equal(t, gobreaker.StateOpen, breaker.breaker.State())
+}
+
+func TestGetEnvOrFallback(t *testing.T) {
+
+	expected := "but-I-exist"
+	want := getEnvOrFallback("IAM_NOT_EXISTING", expected)
+	assert.Equal(t, expected, want)
 
 }
