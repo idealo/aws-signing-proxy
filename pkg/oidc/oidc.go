@@ -115,7 +115,7 @@ func (c *ReadClient) RefreshCredentials(result interface{}) error {
 	return nil
 }
 
-var breaker = circuitbreaker.NewCircuitBreaker("oidc")
+var breaker = circuitbreaker.NewCircuitBreaker()
 
 func RetrieveCredentials(c *ReadClient) error {
 	if cachedCredentials == nil || isExpired(cachedCredentials.Expiration) {

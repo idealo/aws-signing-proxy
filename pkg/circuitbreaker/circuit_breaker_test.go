@@ -13,7 +13,7 @@ import (
 
 func TestCircuitBreakerOpenState(t *testing.T) {
 
-	breaker := NewCircuitBreaker("test-circuit-breaker")
+	breaker := NewCircuitBreaker()
 
 	for i := 0; i < 10; i++ {
 		breaker.Execute(func() (interface{}, error) {
@@ -26,9 +26,9 @@ func TestCircuitBreakerOpenState(t *testing.T) {
 	expectedStateMetric := `
 # HELP auth_circuit_breaker_state State of the authorization circuit breaker
 # TYPE auth_circuit_breaker_state gauge
-auth_circuit_breaker_state{name="test-circuit-breaker",state="closed"} 0
-auth_circuit_breaker_state{name="test-circuit-breaker",state="half-open"} 0
-auth_circuit_breaker_state{name="test-circuit-breaker",state="open"} 1
+auth_circuit_breaker_state{state="closed"} 0
+auth_circuit_breaker_state{state="half-open"} 0
+auth_circuit_breaker_state{state="open"} 1
 `
 
 	if err := testutil.CollectAndCompare(cbStateGauge, strings.NewReader(expectedStateMetric), "auth_circuit_breaker_state"); err != nil {
@@ -52,7 +52,7 @@ auth_circuit_breaker_count{type="total_successes"} 0
 
 func TestCircuitBreakerClosedState(t *testing.T) {
 
-	breaker := NewCircuitBreaker("test-circuit-breaker")
+	breaker := NewCircuitBreaker()
 
 	for i := 0; i < 10; i++ {
 		breaker.Execute(func() (interface{}, error) {
@@ -65,9 +65,9 @@ func TestCircuitBreakerClosedState(t *testing.T) {
 	expected := `
 # HELP auth_circuit_breaker_state State of the authorization circuit breaker
 # TYPE auth_circuit_breaker_state gauge
-auth_circuit_breaker_state{name="test-circuit-breaker",state="closed"} 1
-auth_circuit_breaker_state{name="test-circuit-breaker",state="half-open"} 0
-auth_circuit_breaker_state{name="test-circuit-breaker",state="open"} 0
+auth_circuit_breaker_state{state="closed"} 1
+auth_circuit_breaker_state{state="half-open"} 0
+auth_circuit_breaker_state{state="open"} 0
 `
 
 	if err := testutil.CollectAndCompare(cbStateGauge, strings.NewReader(expected), "auth_circuit_breaker_state"); err != nil {
@@ -93,7 +93,7 @@ func TestCircuitBreakerFailureThresholdConfigParsing(t *testing.T) {
 
 	os.Setenv("ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD", "50")
 
-	breaker := NewCircuitBreaker("test-circuit-breaker")
+	breaker := NewCircuitBreaker()
 
 	for i := 0; i < 10; i++ {
 		breaker.Execute(func() (interface{}, error) {
@@ -109,7 +109,7 @@ func TestCircuitBreakerTimeoutConfigParsing(t *testing.T) {
 
 	os.Setenv("ASP_CIRCUIT_BREAKER_TIMEOUT", "300ms")
 
-	breaker := NewCircuitBreaker("test-circuit-breaker")
+	breaker := NewCircuitBreaker()
 
 	for i := 0; i < 10; i++ {
 		breaker.Execute(func() (interface{}, error) {

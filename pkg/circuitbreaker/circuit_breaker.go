@@ -16,13 +16,13 @@ type CircuitBreaker struct {
 	breaker *gobreaker.CircuitBreaker
 }
 
-func NewCircuitBreaker(name string) *CircuitBreaker {
+func NewCircuitBreaker() *CircuitBreaker {
 
 	timeout := getTimeout()
 	failureThreshold := getFailureThreshold()
 
 	st := gobreaker.Settings{
-		Name:    name,
+		Name:    "auth-circuit-breaker",
 		Timeout: timeout,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			return counts.ConsecutiveFailures > failureThreshold
@@ -61,7 +61,7 @@ func getTimeout() time.Duration {
 }
 
 var (
-	cbStateGauge   = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "auth_circuit_breaker_state", Help: "State of the authorization circuit breaker"}, []string{"state", "name"})
+	cbStateGauge   = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "auth_circuit_breaker_state", Help: "State of the authorization circuit breaker"}, []string{"state"})
 	cbCounterGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "auth_circuit_breaker_count", Help: "Circuit breaker request count"}, []string{"type"})
 )
 
@@ -71,17 +71,17 @@ func (cb *CircuitBreaker) Execute(req func() (interface{}, error)) (interface{},
 
 	switch cb.breaker.State() {
 	case gobreaker.StateOpen:
-		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateOpen.String(), "name": cb.breaker.Name()}).Set(1)
-		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateClosed.String(), "name": cb.breaker.Name()}).Set(0)
-		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateHalfOpen.String(), "name": cb.breaker.Name()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateOpen.String()}).Set(1)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateClosed.String()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateHalfOpen.String()}).Set(0)
 	case gobreaker.StateHalfOpen:
-		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateOpen.String(), "name": cb.breaker.Name()}).Set(0)
-		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateHalfOpen.String(), "name": cb.breaker.Name()}).Set(1)
-		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateClosed.String(), "name": cb.breaker.Name()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateOpen.String()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateHalfOpen.String()}).Set(1)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateClosed.String()}).Set(0)
 	case gobreaker.StateClosed:
-		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateOpen.String(), "name": cb.breaker.Name()}).Set(0)
-		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateHalfOpen.String(), "name": cb.breaker.Name()}).Set(0)
-		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateClosed.String(), "name": cb.breaker.Name()}).Set(1)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateOpen.String()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateHalfOpen.String()}).Set(0)
+		cbStateGauge.With(prometheus.Labels{"state": gobreaker.StateClosed.String()}).Set(1)
 	}
 
 	cbCounterGauge.WithLabelValues("requests").Set(float64(cb.breaker.Counts().Requests))
