@@ -103,6 +103,10 @@ func TestCircuitBreakerFailureThresholdConfigParsing(t *testing.T) {
 
 	assert.Equal(t, gobreaker.StateClosed, breaker.breaker.State())
 
+	defer t.Cleanup(func() {
+		os.Setenv("ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD", "")
+	})
+
 }
 
 func TestCircuitBreakerTimeoutConfigParsing(t *testing.T) {
@@ -119,5 +123,9 @@ func TestCircuitBreakerTimeoutConfigParsing(t *testing.T) {
 
 	time.Sleep(310 * time.Millisecond)
 	assert.Equal(t, gobreaker.StateHalfOpen, breaker.breaker.State())
+
+	defer t.Cleanup(func() {
+		os.Setenv("ASP_CIRCUIT_BREAKER_TIMEOUT", "")
+	})
 
 }
