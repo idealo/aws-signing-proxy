@@ -60,7 +60,7 @@ func (c *Client) ReadFrom(path string) *ReadClient {
 	return r
 }
 
-var breaker = circuitbreaker.NewCircuitBreaker("vault-circuit-breaker")
+var breaker = circuitbreaker.NewCircuitBreaker()
 
 func (r *ReadClient) RefreshCredentials(result interface{}) error {
 	refreshedCreds := result.(*proxy.RefreshedCredentials)
