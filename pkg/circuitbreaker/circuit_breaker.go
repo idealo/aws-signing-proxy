@@ -32,30 +32,34 @@ func NewCircuitBreaker() *CircuitBreaker {
 }
 
 func getFailureThreshold() uint32 {
-	var failures uint32 = 5
-	failuresStr, ok := os.LookupEnv("ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD")
-	if ok {
-		i, err := strconv.Atoi(failuresStr)
-		if err != nil {
-			Logger.Error("Failed parsing the circuit breaker failure count", zap.Error(err))
-			return failures
-		}
-		return uint32(i)
+
+	fallback := 5
+	threshold := getEnvOrFallback("ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD", strconv.Itoa(fallback))
+	thresholdInt, err := strconv.Atoi(threshold)
+	if err != nil {
+		Logger.Error("Failed parsing the circuit breaker failure threshold", zap.Error(err))
+		return uint32(fallback)
 	}
-	return failures
+	return uint32(thresholdInt)
+}
+
+func getEnvOrFallback(envVar string, fallback string) string {
+	val := os.Getenv(envVar)
+	if val != "" {
+		return val
+	}
+	return fallback
 }
 
 func getTimeout() time.Duration {
 	var timeout time.Duration
 	var err error
 
-	timeoutStr, ok := os.LookupEnv("ASP_CIRCUIT_BREAKER_TIMEOUT")
-	if ok {
-		timeout, err = time.ParseDuration(timeoutStr)
-		if err != nil {
-			Logger.Error("Failed parsing the circuit breaker timeout", zap.Error(err))
-			timeout = 0 // defaults to 60s
-		}
+	timeoutStr := getEnvOrFallback("ASP_CIRCUIT_BREAKER_TIMEOUT", "60s")
+	timeout, err = time.ParseDuration(timeoutStr)
+	if err != nil {
+		Logger.Error("Failed parsing the circuit breaker timeout", zap.Error(err))
+		timeout = 0 // defaults to 60s
 	}
 	return timeout
 }
