@@ -13,46 +13,43 @@ Supported AWS credentials:
   an [AWS secrets engine & sts-assumerole](https://www.vaultproject.io/docs/secrets/aws#sts-assumerole)
 * Fetching short-lived credentials from AWS via a OAuth2 authorization server
   and [OpenID Connect (OIDC)](https://openid.net/connect/)
+  * Additionally, you can fetch these credentials asynchronously
 
-For ready-to-use binaries have a look at releases. Additionally, we provide a _Docker image_ which can be used both in a
-test setup and as a sidecar in kubernetes.
+For ready-to-use binaries have a look at [Releases](https://github.com/idealo/aws-signing-proxy/releases).
 
-## 🎉 Version 2 Update 🎉
+Additionally, we provide a [Docker image](https://hub.docker.com/r/idealo/aws-signing-proxy) which can be used as a sidecar in Kubernetes.
+
+## 🎉 Version 2.0.0 Update 🎉
 
 * Version 2.0.0 comes 
   * with a built-in circuit breaker for requesting credentials from either OIDC or Vault 
   * with better error handling and panic recovery
   * with json logging enabled by default
 
-##### Vault Env Cred Provider
+### Breaking Changes
 
-In addition to the proxy you may also use `vault-env-cred-provider` as an
-[credential provider for AWS tooling](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sourcing-external.html)
-.
-
-❗NOTE: the provided pre-built macOS binaries might fail with name resolution issues on your apple machine if you are
-using a (corporate) VPN. This will not occur on linux/windows/docker. If you are affected: either use the provided
-docker image or build the binaries on your machine.
+* Command line flags are now kebab-case to be POSIX style guide compliant
+* `Health Port` is now called `Mgmt Port` 
+  * it provides the `/status/health` endpoint for health probes and `/status/metrics` endpoint for prometheus metrics
 
 # Build & Run
 
 ## Local
 
-### Build
+### Building
 
 #### aws-signing-proxy
 
 1. Change directory to `cmd/aws-signing-proxy`
 2. Run `go build`
 
-#### vault-env-cred-provider
+### Running
 
-1. Change directory to `cmd/vault-env-cred-provider`
-2. Run `go build`
+❗NOTE: the provided pre-built macOS binaries might fail with name resolution issues on your OSX machine if you are
+using a (corporate) VPN. This will not occur on linux/windows/docker. If you are affected: either use the provided
+docker image or build the binaries on your machine from source.
 
-### Run
-
-#### aws-signing-proxy with credentials via vault
+#### With credentials via Vault
 
 Execute the binary with the required environment variables set:
 
@@ -67,7 +64,7 @@ ASP_VAULT_CREDENTIALS_PATH=/an-aws-engine-in-vault/creds/a-role-defined-aws; \
 aws-signing-proxy
 ```
 
-#### aws-signing-proxy with credentials via OIDC
+#### With credentials via OIDC
 
 Execute the binary with either the required environment variables set or via cli flags:
 
@@ -88,37 +85,17 @@ If you want to adjust the built-in authorization server circuit breaker, you can
 The failure threshold defaults to 5 failed requests until the circuit is opened
 The timeout for keeping the circuit open defaults to 60s
 
-`ASP_ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD=5`
+`ASP_CIRCUIT_BREAKER_FAILURE_THRESHOLD=5`
+
 `ASP_CIRCUIT_BREAKER_TIMEOUT=60s`
 
-#### vault-env-cred-provider
+#### Fetching OIDC credentials asynchronously
 
-This program can be used as
-a [credential provider for AWS tooling](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sourcing-external.html)
-. Setting it up is a two-step process:
+Sometimes it is crucial to have the credentials refreshed in the background to avoid a delay for the first-fetch-request
 
-1. Export the required env variables:
+You can enable this feature by setting the environment variable `ASP_ASYNC_OPEN_ID_CREDENTIALS_FETCH` to true.
 
-```
-export ASP_VAULT_AUTH_TOKEN=someTokenWhichAllowsYouToAccessVault
-export ASP_VAULT_URL=https://vault.url.invalid
-export ASP_VAULT_CREDENTIALS_PATH=/an-aws-engine-in-vault/creds/a-role-defined-aws
-```
-
-2. Create an aws config file with the following contents:
-
-```
-[some-aws-profile-name]
-credential_process = /path/to/vault-env-cred-provider
-```
-
-3. Use AWS cli or sdk using this profile name e.g. some-aws-profile-name.
-
-Note that:
-
-* You may name the AWS profile `default` so that you don't need to specify which profile to use when using the AWS
-  SDK/CLI.
-* There is no need to specify AWS_ACCESS_KEY_ID etc.
+It will check every 10 seconds if the credentials are still valid and takes care of refreshing them in the background.
 
 ### Docker
 
