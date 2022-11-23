@@ -49,7 +49,7 @@ Additionally, we provide a [Docker image](https://hub.docker.com/r/idealo/aws-si
 using a (corporate) VPN. This will not occur on linux/windows/docker. If you are affected: either use the provided
 docker image or build the binaries on your machine from source.
 
-#### With credentials via Vault
+#### With Credentials via Vault
 
 Execute the binary with the required environment variables set:
 
@@ -64,7 +64,7 @@ ASP_VAULT_CREDENTIALS_PATH=/an-aws-engine-in-vault/creds/a-role-defined-aws; \
 aws-signing-proxy
 ```
 
-#### With credentials via OIDC
+#### With Credentials via OIDC
 
 Execute the binary with either the required environment variables set or via cli flags:
 
@@ -89,18 +89,23 @@ The timeout for keeping the circuit open defaults to 60s
 
 `ASP_CIRCUIT_BREAKER_TIMEOUT=60s`
 
-#### Fetching OIDC credentials asynchronously
+#### Fetching OIDC Credentials asynchronously
 
 Sometimes it is crucial to have the credentials refreshed in the background to avoid a delay for the first-fetch-request
 
-You can enable this feature by setting the environment variable `ASP_ASYNC_OPEN_ID_CREDENTIALS_FETCH` to true.
+You can enable this feature by setting the environment variable `ASP_ASYNC_OPEN_ID_CREDENTIALS_FETCH` or the flag `--async-open-id-creds-fetch` to true.
 
 It will check every 10 seconds if the credentials are still valid and takes care of refreshing them in the background.
 
+#### Configure the Management Port and Metrics Path
+
+If you want to alter the default port `8081` for the `/status/health` and the `/status/metrics` path, you can do that via setting the environment variable `ASP_MGMT_PORT` or the flag `--mgmt-port` to the port you like.
+
+To alter the prometheus metrics path, you can set the environment variable `ASP_METRICS_PATH` or use the flag `--metrics-path`
+
 ### Docker
 
-You can find the built image at: https://hub.docker.com/r/idealo/aws-signing-proxy/
-Make sure to provide all required ENV variables or flags!
+You can find the built image at: https://hub.docker.com/r/idealo/aws-signing-proxy
 
 ## Acknowledgement
 
