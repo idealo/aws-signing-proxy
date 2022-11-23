@@ -39,7 +39,7 @@ type Flags struct {
 	Port                        *int
 	MgmtPort                    *int
 	Service                     *string
-	CredentialProvider          *string
+	CredentialsProvider         *string
 	VaultUrl                    *string
 	VaultPath                   *string
 	VaultAuthToken              *string
@@ -85,13 +85,13 @@ func main() {
 
 	var client proxy.ReadClient
 
-	if *flags.CredentialProvider == "oidc" {
+	if *flags.CredentialsProvider == "oidc" {
 		if anyFlagEmpty(*flags.OpenIdClientId, *flags.OpenIdClientSecret, *flags.OpenIdAuthServerUrl, *flags.RoleArn) {
 			log.Fatal("Missing some needed flags for OIDC! Either: openIdClientId, openIdClientSecret, openIdAuthServerUrl or roleArn")
 		} else {
 			client = newOidcClient(&flags, client, e)
 		}
-	} else if *flags.CredentialProvider == "vault" {
+	} else if *flags.CredentialsProvider == "vault" {
 		if anyFlagEmpty(*flags.VaultUrl, *flags.VaultPath, *flags.VaultAuthToken) {
 			Logger.Warn("Disabling vault credentials source due to missing flags/environment variables.")
 		} else {
@@ -129,22 +129,22 @@ func main() {
 func parseFlags(flags *Flags, e EnvConfig) {
 	flags.Target = flag.String("target", e.TargetUrl, "target url to proxy to (e.g. foo.eu-central-1.es.amazonaws.com)")
 	flags.Port = flag.Int("port", e.Port, "Listening port for proxy (e.g. 8080)")
-	flags.MgmtPort = flag.Int("mgmtPort", e.MgmtPort, "Management port for proxy (e.g. 8081)")
+	flags.MgmtPort = flag.Int("mgmt-port", e.MgmtPort, "Management port for proxy (e.g. 8081)")
 	flags.Service = flag.String("service", e.Service, "AWS Service (e.g. es)")
 
-	flags.CredentialProvider = flag.String("credentialsProvider", e.CredentialsProvider, "Either retrieve credentials via OpenID or Vault. Valid values are: oidc, vault")
+	flags.CredentialsProvider = flag.String("credentials-provider", e.CredentialsProvider, "Either retrieve credentials via OpenID or Vault. Valid values are: oidc, vault")
 
 	// Vault
-	flags.VaultUrl = flag.String("vaultUrl", e.VaultUrl, "base url of vault (e.g. 'https://foo.vault.invalid')")
-	flags.VaultPath = flag.String("vaultPath", e.VaultCredentialsPath, "path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')")
-	flags.VaultAuthToken = flag.String("vaultToken", e.VaultAuthToken, "token for authenticating with vault (NOTE: use the environment variable ASP_VAULT_AUTH_TOKEN instead)")
+	flags.VaultUrl = flag.String("vault-url", e.VaultUrl, "base url of vault (e.g. 'https://foo.vault.invalid')")
+	flags.VaultPath = flag.String("vault-path", e.VaultCredentialsPath, "path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')")
+	flags.VaultAuthToken = flag.String("vault-token", e.VaultAuthToken, "token for authenticating with vault (NOTE: use the environment variable ASP_VAULT_AUTH_TOKEN instead)")
 
 	// openID Connect
-	flags.OpenIdAuthServerUrl = flag.String("openIdAuthServerUrl", e.OpenIdAuthServerUrl, "The authorization server url")
-	flags.OpenIdClientId = flag.String("openIdClientId", e.OpenIdClientId, "OAuth client id")
-	flags.OpenIdClientSecret = flag.String("openIdClientSecret", e.OpenIdClientSecret, "Oauth client secret")
-	flags.AsyncOpenIdCredentialsFetch = flag.Bool("open-id-fetch-creds-async", e.OpenIdFetchCredsAsync, "Fetch AWS Credentials via OIDC asynchronously")
-	flags.RoleArn = flag.String("roleArn", e.RoleArn, "AWS role ARN to assume to")
+	flags.OpenIdAuthServerUrl = flag.String("openid-auth-server-url", e.OpenIdAuthServerUrl, "The authorization server url")
+	flags.OpenIdClientId = flag.String("openid-client-id", e.OpenIdClientId, "OAuth client id")
+	flags.OpenIdClientSecret = flag.String("openid-client-secret", e.OpenIdClientSecret, "Oauth client secret")
+	flags.AsyncOpenIdCredentialsFetch = flag.Bool("async-open-id-creds-fetch", e.AsyncOpenIdCredentialsFetch, "Fetch AWS Credentials via OIDC asynchronously")
+	flags.RoleArn = flag.String("role-arn", e.RoleArn, "AWS role ARN to assume to")
 
 	flags.Region = flag.String("region", os.Getenv("AWS_REGION"), "AWS region for credentials (e.g. eu-central-1)")
 	flags.FlushInterval = flag.Duration("flush-interval", 0, "non essential: flush interval to flush to the client while copying the response body.")
