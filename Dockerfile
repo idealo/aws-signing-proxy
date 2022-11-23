@@ -8,9 +8,7 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /build/cmd/aws-signing-proxy/aws-signing-proxy .
 
-RUN addgroup -S proxy && adduser -S proxy -G proxy
-RUN chown -R proxy:proxy /app
-RUN chmod 750 /app
+RUN addgroup -S proxy && adduser -S proxy -G proxy && chown -R proxy:proxy /app && chmod 750 /app
 
 USER proxy
 ENTRYPOINT ["/app/aws-signing-proxy"]
