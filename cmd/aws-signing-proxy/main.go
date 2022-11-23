@@ -19,19 +19,20 @@ import (
 )
 
 type EnvConfig struct {
-	TargetUrl             string `split_words:"true"`
-	Port                  int    `default:"8080"`
-	MgmtPort              int    `default:"8081"`
-	Service               string `default:"es"`
-	CredentialsProvider   string `split_words:"true"`
-	VaultUrl              string `split_words:"true"` // 'https://vaulthost'
-	VaultAuthToken        string `split_words:"true"` // auth-token for accessing Vault
-	VaultCredentialsPath  string `split_words:"true"` // path were aws credentials can be generated/retrieved (e.g: 'aws/creds/my-role')
-	OpenIdAuthServerUrl   string `split_words:"true"`
-	OpenIdClientId        string `split_words:"true"`
-	OpenIdClientSecret    string `split_words:"true"`
-	OpenIdFetchCredsAsync bool   `split_words:"true"`
-	RoleArn               string `split_words:"true"`
+	TargetUrl                   string `split_words:"true"`
+	Port                        int    `default:"8080"`
+	MgmtPort                    int    `default:"8081"`
+	Service                     string `default:"es"`
+	CredentialsProvider         string `split_words:"true"`
+	VaultUrl                    string `split_words:"true"` // 'https://vaulthost'
+	VaultAuthToken              string `split_words:"true"` // auth-token for accessing Vault
+	VaultCredentialsPath        string `split_words:"true"` // path where aws credentials can be generated/retrieved (e.g: 'aws/creds/my-role')
+	OpenIdAuthServerUrl         string `split_words:"true"`
+	OpenIdClientId              string `split_words:"true"`
+	OpenIdClientSecret          string `split_words:"true"`
+	AsyncOpenIdCredentialsFetch bool   `split_words:"true" default:"false"`
+	RoleArn                     string `split_words:"true"`
+	MetricsPath                 string `split_words:"true" default:"/status/metrics"`
 }
 
 type Flags struct {
@@ -52,6 +53,7 @@ type Flags struct {
 	FlushInterval               *time.Duration
 	IdleConnTimeout             *time.Duration
 	DialTimeout                 *time.Duration
+	MetricsPath                 *string
 }
 
 func main() {
@@ -119,7 +121,7 @@ func main() {
 	Logger.Info("Listening", zap.String("port", listenString))
 	Logger.Info("Forwarding traffic", zap.String("target", targetURL.String()))
 
-	go provideMgmtEndpoint(mgmtPortString)
+	go provideMgmtEndpoint(mgmtPortString, *flags.MetricsPath)
 
 	err = http.ListenAndServe(listenString, signingProxy)
 	Logger.Error("Something went wrong", zap.Error(err))
@@ -130,6 +132,7 @@ func parseFlags(flags *Flags, e EnvConfig) {
 	flags.Target = flag.String("target", e.TargetUrl, "target url to proxy to (e.g. foo.eu-central-1.es.amazonaws.com)")
 	flags.Port = flag.Int("port", e.Port, "Listening port for proxy (e.g. 8080)")
 	flags.MgmtPort = flag.Int("mgmt-port", e.MgmtPort, "Management port for proxy (e.g. 8081)")
+	flags.MetricsPath = flag.String("metrics-path", e.MetricsPath, "")
 	flags.Service = flag.String("service", e.Service, "AWS Service (e.g. es)")
 
 	flags.CredentialsProvider = flag.String("credentials-provider", e.CredentialsProvider, "Either retrieve credentials via OpenID or Vault. Valid values are: oidc, vault")
@@ -177,7 +180,7 @@ func newOidcClient(flags *Flags, client proxy.ReadClient, e EnvConfig) proxy.Rea
 	return client
 }
 
-func provideMgmtEndpoint(h string) {
+func provideMgmtEndpoint(mgmtPort string, metricsPath string) {
 
 	http.HandleFunc("/status/health", func(w http.ResponseWriter, request *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -185,9 +188,9 @@ func provideMgmtEndpoint(h string) {
 		_, _ = w.Write([]byte("{\"status\":\"ok\"}"))
 	})
 
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle(metricsPath, promhttp.Handler())
 
-	log.Fatal(http.ListenAndServe(h, nil))
+	log.Fatal(http.ListenAndServe(mgmtPort, nil))
 }
 
 func anyFlagEmpty(flags ...string) bool {

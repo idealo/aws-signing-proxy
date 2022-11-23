@@ -67,6 +67,12 @@ func TestBasicMainIntegrationTest(t *testing.T) {
 		t.Fatalf("X-Amz-Security-Token is wrong!\nWanted: FOOBAR\nGot: %s", signedRequest.Header["X-Amz-Security-Token"][0])
 	}
 
+	// Basic check for verifying that the prometheus endpoint is available
+	resp, err := client.Get("http://127.0.0.1:8081/status/metrics")
+	if resp.StatusCode != 200 {
+		t.Fatalf("Prometheus Metrics endpoint is broken!\nWanted: HTTP Status Code 200\nGot: HTTP Status Code %d", resp.StatusCode)
+	}
+
 }
 
 func handleError(err error) {
