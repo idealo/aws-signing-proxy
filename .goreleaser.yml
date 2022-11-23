@@ -11,15 +11,6 @@ builds:
       - linux
       - darwin
       - windows
-  - main: ./cmd/vault-env-cred-provider/main.go
-    id: "vault-env-cred-provider"
-    binary: vault-env-cred-provider
-    goarch:
-      - amd64
-    goos:
-      - linux
-      - darwin
-      - windows
 archives:
   - replacements:
       darwin: Darwin
