@@ -21,7 +21,7 @@ import (
 type EnvConfig struct {
 	TargetUrl                   string `split_words:"true"`
 	Port                        int    `default:"8080"`
-	MgmtPort                    int    `default:"8081"`
+	MgmtPort                    int    `split_words:"true" default:"8081"`
 	Service                     string `default:"es"`
 	CredentialsProvider         string `split_words:"true"`
 	VaultUrl                    string `split_words:"true"` // 'https://vaulthost'
