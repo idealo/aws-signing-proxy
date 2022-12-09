@@ -168,7 +168,13 @@ func newOidcClient(flags *Flags, client proxy.ReadClient, e EnvConfig) proxy.Rea
 
 	if *flags.AsyncOpenIdCredentialsFetch == true {
 		scheduler := gocron.NewScheduler(time.UTC)
-		_, err := scheduler.Every(10).Seconds().StartImmediately().Do(func() { oidc.RetrieveCredentials(&oidcClient) })
+		_, err := scheduler.Every(10).Seconds().StartImmediately().Do(func() {
+			err := oidc.RetrieveCredentials(&oidcClient)
+			if err != nil {
+				Logger.Error("Something went wrong while trying to retrieve credentials", zap.Error(err))
+			}
+		})
+
 		if err != nil {
 			Logger.Error("Scheduled Task for retrieving refreshed OIDC credentials failed", zap.Error(err))
 		}
