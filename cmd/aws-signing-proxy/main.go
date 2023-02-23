@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/go-co-op/gocron"
+	"github.com/idealo/aws-signing-proxy/pkg/irsa"
 	. "github.com/idealo/aws-signing-proxy/pkg/logging"
 	"github.com/idealo/aws-signing-proxy/pkg/oidc"
 	"github.com/idealo/aws-signing-proxy/pkg/proxy"
@@ -33,6 +34,7 @@ type EnvConfig struct {
 	AsyncOpenIdCredentialsFetch bool   `split_words:"true" default:"false"`
 	RoleArn                     string `split_words:"true"`
 	MetricsPath                 string `split_words:"true" default:"/status/metrics"`
+	IrsaClientId                string `split_words:"true"`
 }
 
 type Flags struct {
@@ -54,6 +56,7 @@ type Flags struct {
 	IdleConnTimeout             *time.Duration
 	DialTimeout                 *time.Duration
 	MetricsPath                 *string
+	IrsaClientId                *string
 }
 
 func main() {
@@ -87,7 +90,13 @@ func main() {
 
 	var client proxy.ReadClient
 
-	if *flags.CredentialsProvider == "oidc" {
+	if *flags.CredentialsProvider == "irsa" {
+		if anyFlagEmpty(*flags.RoleArn, *flags.IrsaClientId) {
+			log.Fatal("Missing some needed flags for IRSA! Either: irsa-client-id or role-arn!")
+		} else {
+			client = irsa.NewIRSAClient(region, *flags.IrsaClientId, *flags.RoleArn)
+		}
+	} else if *flags.CredentialsProvider == "oidc" {
 		if anyFlagEmpty(*flags.OpenIdClientId, *flags.OpenIdClientSecret, *flags.OpenIdAuthServerUrl, *flags.RoleArn) {
 			log.Fatal("Missing some needed flags for OIDC! Either: openIdClientId, openIdClientSecret, openIdAuthServerUrl or roleArn")
 		} else {
@@ -116,6 +125,7 @@ func main() {
 		DialTimeout:     *flags.DialTimeout,
 		AuthClient:      client,
 	})
+
 	listenString := fmt.Sprintf(":%v", *flags.Port)
 	mgmtPortString := fmt.Sprintf(":%v", *flags.MgmtPort)
 	Logger.Info("Listening", zap.String("port", listenString))
@@ -145,6 +155,7 @@ func parseFlags(flags *Flags, e EnvConfig) {
 	// openID Connect
 	flags.OpenIdAuthServerUrl = flag.String("openid-auth-server-url", e.OpenIdAuthServerUrl, "The authorization server url")
 	flags.OpenIdClientId = flag.String("openid-client-id", e.OpenIdClientId, "OAuth client id")
+	flags.IrsaClientId = flag.String("irsa-client-id", e.IrsaClientId, "IRSA client id")
 	flags.OpenIdClientSecret = flag.String("openid-client-secret", e.OpenIdClientSecret, "Oauth client secret")
 	flags.AsyncOpenIdCredentialsFetch = flag.Bool("async-open-id-creds-fetch", e.AsyncOpenIdCredentialsFetch, "Fetch AWS Credentials via OIDC asynchronously")
 	flags.RoleArn = flag.String("role-arn", e.RoleArn, "AWS role ARN to assume to")
