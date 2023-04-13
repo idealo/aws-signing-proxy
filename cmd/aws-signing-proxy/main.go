@@ -90,30 +90,28 @@ func main() {
 
 	var client proxy.ReadClient
 
-	if *flags.CredentialsProvider == "irsa" {
-		if anyFlagEmpty(*flags.RoleArn, *flags.IrsaClientId) {
-			log.Fatal("Missing some needed flags for IRSA! Either: irsa-client-id or role-arn!")
-		} else {
-			client = irsa.NewIRSAClient(region, *flags.IrsaClientId, *flags.RoleArn)
+	switch *flags.CredentialsProvider {
+	case "irsa":
+		if anyFlagEmpty(*flags.RoleArn) {
+			log.Fatal("Missing some needed role-arn flag for IRSA!")
 		}
-	} else if *flags.CredentialsProvider == "oidc" {
+		client = irsa.NewIRSAClient(region, *flags.IrsaClientId, *flags.RoleArn)
+	case "oidc":
 		if anyFlagEmpty(*flags.OpenIdClientId, *flags.OpenIdClientSecret, *flags.OpenIdAuthServerUrl, *flags.RoleArn) {
 			log.Fatal("Missing some needed flags for OIDC! Either: openIdClientId, openIdClientSecret, openIdAuthServerUrl or roleArn")
-		} else {
-			client = newOidcClient(&flags, client, e)
 		}
-	} else if *flags.CredentialsProvider == "vault" {
+		client = newOidcClient(&flags, client, e)
+	case "vault":
 		if anyFlagEmpty(*flags.VaultUrl, *flags.VaultPath, *flags.VaultAuthToken) {
-			Logger.Warn("Disabling vault credentials source due to missing flags/environment variables.")
-		} else {
-			client = vault.NewVaultClient().
-				WithBaseUrl(*flags.VaultUrl).
-				WithToken(*flags.VaultAuthToken).
-				ReadFrom(*flags.VaultPath)
-			Logger.Info("Using Credentials from Vault.", zap.String("vault-url", e.VaultUrl), zap.String("path", e.VaultCredentialsPath))
+			Logger.Fatal("Missing some needed flags for OIDC! Either: vaultUrl, vaultPath or vaultAuthToken")
 		}
-	} else {
-		Logger.Warn("Using static credentials is unsafe. Please consider using some short-living credentials mechanism like Vault or OIDC.")
+		client = vault.NewVaultClient().
+			WithBaseUrl(*flags.VaultUrl).
+			WithToken(*flags.VaultAuthToken).
+			ReadFrom(*flags.VaultPath)
+		Logger.Info("Using Credentials from Vault.", zap.String("vault-url", e.VaultUrl), zap.String("path", e.VaultCredentialsPath))
+	default:
+		Logger.Warn("Using static credentials is unsafe. Please consider using some short-living credentials mechanism like IRSA, OIDC or Vault.")
 	}
 
 	signingProxy := proxy.NewSigningProxy(proxy.Config{
@@ -145,20 +143,19 @@ func parseFlags(flags *Flags, e EnvConfig) {
 	flags.MetricsPath = flag.String("metrics-path", e.MetricsPath, "")
 	flags.Service = flag.String("service", e.Service, "AWS Service (e.g. es)")
 
-	flags.CredentialsProvider = flag.String("credentials-provider", e.CredentialsProvider, "Either retrieve credentials via OpenID or Vault. Valid values are: oidc, vault")
+	flags.CredentialsProvider = flag.String("credentials-provider", e.CredentialsProvider, "Either retrieve credentials via IRSA, OpenID Connect or Vault. Valid values are: irsa, oidc, vault. Leave empty if you would like to use static credentials.")
 
-	// Vault
 	flags.VaultUrl = flag.String("vault-url", e.VaultUrl, "base url of vault (e.g. 'https://foo.vault.invalid')")
 	flags.VaultPath = flag.String("vault-path", e.VaultCredentialsPath, "path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')")
 	flags.VaultAuthToken = flag.String("vault-token", e.VaultAuthToken, "token for authenticating with vault (NOTE: use the environment variable ASP_VAULT_AUTH_TOKEN instead)")
 
-	// openID Connect
 	flags.OpenIdAuthServerUrl = flag.String("openid-auth-server-url", e.OpenIdAuthServerUrl, "The authorization server url")
 	flags.OpenIdClientId = flag.String("openid-client-id", e.OpenIdClientId, "OAuth client id")
-	flags.IrsaClientId = flag.String("irsa-client-id", e.IrsaClientId, "IRSA client id")
 	flags.OpenIdClientSecret = flag.String("openid-client-secret", e.OpenIdClientSecret, "Oauth client secret")
 	flags.AsyncOpenIdCredentialsFetch = flag.Bool("async-open-id-creds-fetch", e.AsyncOpenIdCredentialsFetch, "Fetch AWS Credentials via OIDC asynchronously")
 	flags.RoleArn = flag.String("role-arn", e.RoleArn, "AWS role ARN to assume to")
+
+	flags.IrsaClientId = flag.String("irsa-client-id", e.IrsaClientId, "IRSA client id")
 
 	flags.Region = flag.String("region", os.Getenv("AWS_REGION"), "AWS region for credentials (e.g. eu-central-1)")
 	flags.FlushInterval = flag.Duration("flush-interval", 0, "non essential: flush interval to flush to the client while copying the response body.")
