@@ -25,8 +25,8 @@ type EnvConfig struct {
 	MgmtPort                    int    `split_words:"true" default:"8081"`
 	Service                     string `default:"es"`
 	CredentialsProvider         string `split_words:"true"`
-	VaultUrl                    string `split_words:"true"` // 'https://vaulthost'
-	VaultAuthToken              string `split_words:"true"` // auth-token for accessing Vault
+	VaultUrl                    string `split_words:"true"`
+	VaultAuthToken              string `split_words:"true"`
 	VaultCredentialsPath        string `split_words:"true"` // path where aws credentials can be generated/retrieved (e.g: 'aws/creds/my-role')
 	OpenIdAuthServerUrl         string `split_words:"true"`
 	OpenIdClientId              string `split_words:"true"`
@@ -34,7 +34,7 @@ type EnvConfig struct {
 	AsyncOpenIdCredentialsFetch bool   `split_words:"true" default:"false"`
 	RoleArn                     string `split_words:"true"`
 	MetricsPath                 string `split_words:"true" default:"/status/metrics"`
-	IrsaClientId                string `split_words:"true"`
+	IrsaClientId                string `split_words:"true" default:"aws-signing-proxy"`
 }
 
 type Flags struct {
