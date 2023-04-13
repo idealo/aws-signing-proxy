@@ -12,7 +12,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -74,7 +73,7 @@ func main() {
 
 	// Validate target URL
 	if anyFlagEmpty(*flags.Service, *flags.Target) {
-		log.Fatal("required parameter target (e.g. foo.eu-central-1.es.amazonaws.com) OR service (e.g. es) missing!")
+		Logger.Fatal("required parameter target (e.g. foo.eu-central-1.es.amazonaws.com) OR service (e.g. es) missing!")
 	}
 	targetURL, err := url.Parse(*flags.Target)
 	if err != nil {
@@ -92,24 +91,11 @@ func main() {
 
 	switch *flags.CredentialsProvider {
 	case "irsa":
-		if anyFlagEmpty(*flags.RoleArn) {
-			log.Fatal("Missing some needed role-arn flag for IRSA!")
-		}
-		client = irsa.NewIRSAClient(region, *flags.IrsaClientId, *flags.RoleArn)
+		client = newIrsaClient(flags, client, region)
 	case "oidc":
-		if anyFlagEmpty(*flags.OpenIdClientId, *flags.OpenIdClientSecret, *flags.OpenIdAuthServerUrl, *flags.RoleArn) {
-			log.Fatal("Missing some needed flags for OIDC! Either: openIdClientId, openIdClientSecret, openIdAuthServerUrl or roleArn")
-		}
-		client = newOidcClient(&flags, client, e)
+		client = newOidcClient(flags, client, e)
 	case "vault":
-		if anyFlagEmpty(*flags.VaultUrl, *flags.VaultPath, *flags.VaultAuthToken) {
-			Logger.Fatal("Missing some needed flags for OIDC! Either: vaultUrl, vaultPath or vaultAuthToken")
-		}
-		client = vault.NewVaultClient().
-			WithBaseUrl(*flags.VaultUrl).
-			WithToken(*flags.VaultAuthToken).
-			ReadFrom(*flags.VaultPath)
-		Logger.Info("Using Credentials from Vault.", zap.String("vault-url", e.VaultUrl), zap.String("path", e.VaultCredentialsPath))
+		client = newVaultClient(flags, client, e)
 	default:
 		Logger.Warn("Using static credentials is unsafe. Please consider using some short-living credentials mechanism like IRSA, OIDC or Vault.")
 	}
@@ -134,6 +120,59 @@ func main() {
 	err = http.ListenAndServe(listenString, signingProxy)
 	Logger.Error("Something went wrong", zap.Error(err))
 
+}
+
+func newVaultClient(flags Flags, client proxy.ReadClient, e EnvConfig) proxy.ReadClient {
+	if anyFlagEmpty(*flags.VaultUrl, *flags.VaultPath, *flags.VaultAuthToken) {
+		Logger.Fatal("Missing some needed flags for using Vault! Either: vaultUrl, vaultPath or vaultAuthToken")
+	}
+	Logger.Info("Using Credentials from Vault.", zap.String("vault-url", e.VaultUrl), zap.String("path", e.VaultCredentialsPath))
+	client = vault.NewVaultClient().
+		WithBaseUrl(*flags.VaultUrl).
+		WithToken(*flags.VaultAuthToken).
+		ReadFrom(*flags.VaultPath)
+	return client
+}
+
+func newIrsaClient(flags Flags, client proxy.ReadClient, region string) proxy.ReadClient {
+	if anyFlagEmpty(*flags.RoleArn) {
+		zap.S().Fatal("Missing needed role-arn flag for IRSA!")
+	}
+	client = irsa.NewIRSAClient(region, *flags.IrsaClientId, *flags.RoleArn)
+	return client
+}
+
+func newOidcClient(flags Flags, client proxy.ReadClient, e EnvConfig) proxy.ReadClient {
+	if anyFlagEmpty(*flags.OpenIdClientId, *flags.OpenIdClientSecret, *flags.OpenIdAuthServerUrl, *flags.RoleArn) {
+		zap.S().Fatal("Missing some needed flags for OIDC! Either: openIdClientId, openIdClientSecret, openIdAuthServerUrl or roleArn")
+	}
+
+	var oidcClient oidc.ReadClient
+	oidcClient = *oidc.NewOIDCClient(*flags.Region).
+		WithAuthServerUrl(*flags.OpenIdAuthServerUrl).
+		WithClientSecret(*flags.OpenIdClientSecret).
+		WithClientId(*flags.OpenIdClientId).
+		WithRoleArn(*flags.RoleArn).
+		Build()
+
+	if *flags.AsyncOpenIdCredentialsFetch == true {
+		scheduler := gocron.NewScheduler(time.UTC)
+		_, err := scheduler.Every(10).Seconds().StartImmediately().Do(func() {
+			err := oidc.RetrieveCredentials(&oidcClient)
+			if err != nil {
+				Logger.Error("Something went wrong while trying to retrieve credentials", zap.Error(err))
+			}
+		})
+
+		if err != nil {
+			Logger.Error("Scheduled Task for retrieving refreshed OIDC credentials failed", zap.Error(err))
+		}
+		scheduler.StartAsync()
+	}
+
+	client = &oidcClient
+	Logger.Info("Using Credentials from from OIDC with Oauth2 server", zap.String("auth-server", e.OpenIdAuthServerUrl))
+	return client
 }
 
 func parseFlags(flags *Flags, e EnvConfig) {
@@ -165,35 +204,6 @@ func parseFlags(flags *Flags, e EnvConfig) {
 	flag.Parse()
 }
 
-func newOidcClient(flags *Flags, client proxy.ReadClient, e EnvConfig) proxy.ReadClient {
-	var oidcClient oidc.ReadClient
-	oidcClient = *oidc.NewOIDCClient(*flags.Region).
-		WithAuthServerUrl(*flags.OpenIdAuthServerUrl).
-		WithClientSecret(*flags.OpenIdClientSecret).
-		WithClientId(*flags.OpenIdClientId).
-		WithRoleArn(*flags.RoleArn).
-		Build()
-
-	if *flags.AsyncOpenIdCredentialsFetch == true {
-		scheduler := gocron.NewScheduler(time.UTC)
-		_, err := scheduler.Every(10).Seconds().StartImmediately().Do(func() {
-			err := oidc.RetrieveCredentials(&oidcClient)
-			if err != nil {
-				Logger.Error("Something went wrong while trying to retrieve credentials", zap.Error(err))
-			}
-		})
-
-		if err != nil {
-			Logger.Error("Scheduled Task for retrieving refreshed OIDC credentials failed", zap.Error(err))
-		}
-		scheduler.StartAsync()
-	}
-
-	client = &oidcClient
-	Logger.Info("Using Credentials from from OIDC with Oauth2 server", zap.String("auth-server", e.OpenIdAuthServerUrl))
-	return client
-}
-
 func provideMgmtEndpoint(mgmtPort string, metricsPath string) {
 
 	http.HandleFunc("/status/health", func(w http.ResponseWriter, request *http.Request) {
@@ -204,7 +214,7 @@ func provideMgmtEndpoint(mgmtPort string, metricsPath string) {
 
 	http.Handle(metricsPath, promhttp.Handler())
 
-	log.Fatal(http.ListenAndServe(mgmtPort, nil))
+	zap.S().Fatal(http.ListenAndServe(mgmtPort, nil))
 }
 
 func anyFlagEmpty(flags ...string) bool {

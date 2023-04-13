@@ -77,9 +77,9 @@ func (c *ReadClient) RefreshCredentials(result interface{}) error {
 func RetrieveCredentials(c *ReadClient) error {
 	if cachedCredentials == nil || isExpired(cachedCredentials.Expiration) {
 
-		tokenFile, present := os.LookupEnv("AWS_WEB_IDENTITY_TOKEN_FILE")
-		if !present {
-			zap.S().Errorf("IRSA token file is missing.")
+		tokenFile, ok := os.LookupEnv("AWS_WEB_IDENTITY_TOKEN_FILE")
+		if !ok {
+			zap.S().Fatalf("Environment variable 'AWS_WEB_IDENTITY_TOKEN_FILE' is not set!")
 		}
 
 		bytes, err := os.ReadFile(tokenFile)
