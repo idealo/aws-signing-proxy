@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/go-co-op/gocron"
@@ -15,24 +16,28 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
 type EnvConfig struct {
-	TargetUrl                   string `split_words:"true"`
-	Port                        int    `default:"8080"`
-	MgmtPort                    int    `split_words:"true" default:"8081"`
-	Service                     string `default:"es"`
-	CredentialsProvider         string `split_words:"true"`
-	VaultUrl                    string `split_words:"true"`
-	VaultAuthToken              string `split_words:"true"`
-	VaultCredentialsPath        string `split_words:"true"` // path where aws credentials can be generated/retrieved (e.g: 'aws/creds/my-role')
-	OpenIdAuthServerUrl         string `split_words:"true"`
-	OpenIdClientId              string `split_words:"true"`
-	OpenIdClientSecret          string `split_words:"true"`
-	AsyncOpenIdCredentialsFetch bool   `split_words:"true" default:"false"`
-	RoleArn                     string `split_words:"true"`
-	MetricsPath                 string `split_words:"true" default:"/status/metrics"`
+	TargetUrl                   string        `required:"true" split_words:"true"`
+	Port                        int           `default:"8080"`
+	MgmtPort                    int           `split_words:"true" default:"8081"`
+	Service                     string        `default:"es"`
+	CredentialsProvider         string        `required:"true" split_words:"true"`
+	VaultUrl                    string        `split_words:"true"`
+	VaultAuthToken              string        `split_words:"true"`
+	VaultCredentialsPath        string        `split_words:"true"`
+	OpenIdAuthServerUrl         string        `split_words:"true"`
+	OpenIdClientId              string        `split_words:"true"`
+	OpenIdClientSecret          string        `split_words:"true"`
+	AsyncOpenIdCredentialsFetch bool          `split_words:"true" default:"false"`
+	RoleArn                     string        `split_words:"true"`
+	MetricsPath                 string        `split_words:"true" default:"/status/metrics"`
+	FlushInterval               time.Duration `split_words:"true" default:"0s"`
+	IdleConnTimeout             time.Duration `split_words:"true" default:"90s"`
+	DialTimeout                 time.Duration `split_words:"true"  default:"30s"`
 	IrsaClientId                string `split_words:"true" default:"aws-signing-proxy"`
 }
 
@@ -62,11 +67,7 @@ func main() {
 
 	defer Logger.Sync()
 
-	// Adding envconfig to allow setting key vars via ENV
-	var e EnvConfig
-	if err := envconfig.Process("ASP", &e); err != nil {
-		Logger.Error(err.Error())
-	}
+	e, flags := loadConfig()
 
 	var flags = Flags{}
 	parseFlags(&flags, e)
@@ -120,6 +121,82 @@ func main() {
 	err = http.ListenAndServe(listenString, signingProxy)
 	Logger.Error("Something went wrong", zap.Error(err))
 
+}
+
+func loadConfig() (EnvConfig, Flags) {
+	// Adding envconfig to allow setting key vars via ENV
+	e, err := parseEnvironmentVariables()
+	if err != nil {
+		Logger.Error(err.Error())
+	}
+
+	var flags = Flags{}
+	parseFlags(&flags, e)
+
+	// Validate target URL
+	if anyFlagEmpty(*flags.Service, *flags.Target) {
+		log.Fatal("required parameter target (e.g. foo.eu-central-1.es.amazonaws.com) OR service (e.g. es) missing!")
+	}
+	return e, flags
+}
+
+func parseEnvironmentVariables() (EnvConfig, error) {
+	var e EnvConfig
+	err := envconfig.Process("ASP", &e)
+
+	if err != nil {
+		return e, err
+	}
+
+	switch e.CredentialsProvider {
+
+	case "oidc":
+		condParams := []string{
+			"ASP_OPEN_ID_AUTH_SERVER_URL",
+			"ASP_OPEN_ID_CLIENT_ID",
+			"ASP_OPEN_ID_CLIENT_SECRET",
+		}
+
+		for _, condParam := range condParams {
+			if len(strings.TrimSpace(os.Getenv(condParam))) == 0 {
+				err = errors.New(fmt.Sprintf("required key %s missing value", condParam))
+				return e, err
+			}
+		}
+		break
+	case "vault":
+		condParams := []string{
+			"ASP_VAULT_URL",
+			"ASP_VAULT_PATH",
+			"ASP_VAULT_AUTH_TOKEN",
+		}
+
+		for _, condParam := range condParams {
+			if len(strings.TrimSpace(os.Getenv(condParam))) == 0 {
+				err = errors.New(fmt.Sprintf("required key %s missing value", condParam))
+				return e, err
+			}
+		}
+		break
+	case "awstoken":
+		{
+			condParams := []string{
+				"AWS_ACCESS_KEY_ID",
+				"AWS_SECRET_ACCESS_KEY",
+				"AWS_SESSION_TOKEN",
+			}
+
+			for _, condParam := range condParams {
+				if len(strings.TrimSpace(os.Getenv(condParam))) == 0 {
+					err = errors.New(fmt.Sprintf("required key %s missing value", condParam))
+					return e, err
+				}
+			}
+			break
+		}
+	}
+
+	return e, err
 }
 
 func newVaultClient(flags Flags, client proxy.ReadClient, e EnvConfig) proxy.ReadClient {
@@ -220,6 +297,15 @@ func provideMgmtEndpoint(mgmtPort string, metricsPath string) {
 func anyFlagEmpty(flags ...string) bool {
 	for _, cliFlag := range flags {
 		if len(cliFlag) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func anyEnvVarEmpty(vars ...string) bool {
+	for _, envVar := range vars {
+		if len(envVar) == 0 {
 			return true
 		}
 	}
