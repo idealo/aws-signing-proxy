@@ -132,67 +132,6 @@ func loadConfig() (EnvConfig, Flags) {
 
 	// Validate target URL
 	if anyFlagEmpty(*flags.Service, *flags.Target) {
-		log.Fatal("required parameter target (e.g. foo.eu-central-1.es.amazonaws.com) OR service (e.g. es) missing!")
-	}
-	return e, flags
-}
-
-func parseEnvironmentVariables() (EnvConfig, error) {
-	var e EnvConfig
-	err := envconfig.Process("ASP", &e)
-
-	if err != nil {
-		return e, err
-	}
-
-	switch e.CredentialsProvider {
-
-	case "oidc":
-		condParams := []string{
-			"ASP_OPEN_ID_AUTH_SERVER_URL",
-			"ASP_OPEN_ID_CLIENT_ID",
-			"ASP_OPEN_ID_CLIENT_SECRET",
-		}
-
-		for _, condParam := range condParams {
-			if len(strings.TrimSpace(os.Getenv(condParam))) == 0 {
-				err = errors.New(fmt.Sprintf("required key %s missing value", condParam))
-				return e, err
-			}
-		}
-		break
-	case "vault":
-		err = assertEnvVarsAreSet([]string{"ASP_VAULT_URL", "ASP_VAULT_PATH", "ASP_VAULT_AUTH_TOKEN"})
-		break
-	case "awstoken":
-		err = assertEnvVarsAreSet([]string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"})
-		break
-	}
-
-	return e, err
-}
-
-func assertEnvVarsAreSet(envVars []string) error {
-	for _, condParam := range envVars {
-		if len(strings.TrimSpace(os.Getenv(condParam))) == 0 {
-			return errors.New(fmt.Sprintf("required key %s missing value", condParam))
-		}
-	}
-	return nil
-}
-
-func loadConfig() (EnvConfig, Flags) {
-	// Adding envconfig to allow setting key vars via ENV
-	e, err := parseEnvironmentVariables()
-	if err != nil {
-		Logger.Error(err.Error())
-	}
-
-	var flags = Flags{}
-	parseFlags(&flags, e)
-
-	// Validate target URL
-	if anyFlagEmpty(*flags.Service, *flags.Target) {
 		Logger.Fatal("required parameter target (e.g. foo.eu-central-1.es.amazonaws.com) OR service (e.g. es) missing!")
 	}
 	return e, flags
