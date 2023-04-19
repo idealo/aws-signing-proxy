@@ -165,38 +165,23 @@ func parseEnvironmentVariables() (EnvConfig, error) {
 		}
 		break
 	case "vault":
-		condParams := []string{
-			"ASP_VAULT_URL",
-			"ASP_VAULT_PATH",
-			"ASP_VAULT_AUTH_TOKEN",
-		}
-
-		for _, condParam := range condParams {
-			if len(strings.TrimSpace(os.Getenv(condParam))) == 0 {
-				err = errors.New(fmt.Sprintf("required key %s missing value", condParam))
-				return e, err
-			}
-		}
+		err = assertEnvVarsAreSet([]string{"ASP_VAULT_URL", "ASP_VAULT_PATH", "ASP_VAULT_AUTH_TOKEN"})
 		break
 	case "awstoken":
-		{
-			condParams := []string{
-				"AWS_ACCESS_KEY_ID",
-				"AWS_SECRET_ACCESS_KEY",
-				"AWS_SESSION_TOKEN",
-			}
-
-			for _, condParam := range condParams {
-				if len(strings.TrimSpace(os.Getenv(condParam))) == 0 {
-					err = errors.New(fmt.Sprintf("required key %s missing value", condParam))
-					return e, err
-				}
-			}
-			break
-		}
+		err = assertEnvVarsAreSet([]string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"})
+		break
 	}
 
 	return e, err
+}
+
+func assertEnvVarsAreSet(envVars []string) error {
+	for _, condParam := range envVars {
+		if len(strings.TrimSpace(os.Getenv(condParam))) == 0 {
+			return errors.New(fmt.Sprintf("required key %s missing value", condParam))
+		}
+	}
+	return nil
 }
 
 func newVaultClient(flags Flags, client proxy.ReadClient, e EnvConfig) proxy.ReadClient {
