@@ -114,6 +114,7 @@ func TestRequiredParamsForOIDCAreChecked(t *testing.T) {
 		{"ASP_OPEN_ID_AUTH_SERVER_URL", true},
 		{"ASP_OPEN_ID_CLIENT_ID", true},
 		{"ASP_OPEN_ID_CLIENT_SECRET", true},
+		{"ASP_ROLE_ARN", true},
 	}
 
 	for _, tc := range testCases {
@@ -124,6 +125,7 @@ func TestRequiredParamsForOIDCAreChecked(t *testing.T) {
 			os.Setenv("ASP_OPEN_ID_AUTH_SERVER_URL", "FOORL")
 			os.Setenv("ASP_OPEN_ID_CLIENT_ID", "FOO")
 			os.Setenv("ASP_OPEN_ID_CLIENT_SECRET", "BAR")
+			os.Setenv("ASP_ROLE_ARN", "FOO::ARN")
 
 			os.Unsetenv(tc.envVarName)
 
@@ -172,6 +174,7 @@ func TestRequiredParamsForIrsaAreChecked(t *testing.T) {
 	requiredParams := []string{
 		"ASP_IRSA_CLIENT_ID",
 		"AWS_WEB_IDENTITY_TOKEN_FILE",
+		"ASP_ROLE_ARN",
 	}
 
 	for _, rp := range requiredParams {
@@ -181,6 +184,7 @@ func TestRequiredParamsForIrsaAreChecked(t *testing.T) {
 
 			os.Setenv("ASP_IRSA_CLIENT_ID", "FOO")
 			os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/foo/bar")
+			os.Setenv("ASP_ROLE_ARN", "FOO::ARN")
 
 			os.Unsetenv(rp)
 
