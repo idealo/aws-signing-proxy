@@ -37,7 +37,6 @@ func TestBasicMainIntegrationTest(t *testing.T) {
 	os.Setenv("ASP_TARGET_URL", "http://127.0.0.1:"+targetPort)
 	os.Setenv("ASP_SERVICE", "s3")
 	os.Setenv("AWS_REGION", "eu-central-1")
-	os.Setenv("ASP_CREDENTIALS_PROVIDER", "awstoken")
 
 	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAR")
@@ -83,21 +82,11 @@ func TestRequiredParamsAreChecked(t *testing.T) {
 		required   bool
 	}{
 		{"ASP_TARGET_URL", true},
-		{"ASP_SERVICE", false},
-		{"AWS_REGION", false},
-		{"ASP_CREDENTIALS_PROVIDER", true},
 	}
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("%s is required %t", tc.envVarName, tc.required), func(t *testing.T) {
 			os.Setenv("ASP_TARGET_URL", "http://127.0.0.1:1337")
-			os.Setenv("ASP_SERVICE", "s3")
-			os.Setenv("AWS_REGION", "eu-central-1")
-			os.Setenv("ASP_CREDENTIALS_PROVIDER", "awstoken")
-
-			os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
-			os.Setenv("AWS_SECRET_ACCESS_KEY", "BAR")
-			os.Setenv("AWS_SESSION_TOKEN", "FOOBAR")
 
 			os.Unsetenv(tc.envVarName)
 
@@ -167,6 +156,30 @@ func TestRequiredParamsForVaultAreChecked(t *testing.T) {
 			os.Setenv("ASP_VAULT_URL", "FOORL")
 			os.Setenv("ASP_VAULT_PATH", "/foo/bar")
 			os.Setenv("ASP_VAULT_AUTH_TOKEN", "secret")
+
+			os.Unsetenv(rp)
+
+			_, err := parseEnvironmentVariables()
+			if err == nil || err.Error() != fmt.Sprintf("required key %s missing value", rp) {
+				t.Fatal(fmt.Sprintf("Fail: omitting the required parameter %s did not lead to a parsing failure.", rp))
+			}
+		})
+	}
+}
+
+func TestRequiredParamsForIrsaAreChecked(t *testing.T) {
+	requiredParams := []string{
+		"ASP_IRSA_CLIENT_ID",
+		"AWS_WEB_IDENTITY_TOKEN_FILE",
+	}
+
+	for _, rp := range requiredParams {
+		t.Run(fmt.Sprintf("%s is required", rp), func(t *testing.T) {
+			os.Setenv("ASP_TARGET_URL", "http://127.0.0.1:1337")
+			os.Setenv("ASP_CREDENTIALS_PROVIDER", "irsa")
+
+			os.Setenv("ASP_IRSA_CLIENT_ID", "FOO")
+			os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/foo/bar")
 
 			os.Unsetenv(rp)
 

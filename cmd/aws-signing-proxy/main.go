@@ -25,7 +25,7 @@ type EnvConfig struct {
 	Port                        int           `default:"8080"`
 	MgmtPort                    int           `split_words:"true" default:"8081"`
 	Service                     string        `default:"es"`
-	CredentialsProvider         string        `required:"true" split_words:"true"`
+	CredentialsProvider         string        `split_words:"true"`
 	VaultUrl                    string        `split_words:"true"`
 	VaultAuthToken              string        `split_words:"true"`
 	VaultCredentialsPath        string        `split_words:"true"`
@@ -38,7 +38,7 @@ type EnvConfig struct {
 	FlushInterval               time.Duration `split_words:"true" default:"0s"`
 	IdleConnTimeout             time.Duration `split_words:"true" default:"90s"`
 	DialTimeout                 time.Duration `split_words:"true"  default:"30s"`
-	IrsaClientId                string `split_words:"true" default:"aws-signing-proxy"`
+	IrsaClientId                string        `split_words:"true" default:"aws-signing-proxy"`
 }
 
 type Flags struct {
@@ -68,9 +68,6 @@ func main() {
 	defer Logger.Sync()
 
 	e, flags := loadConfig()
-
-	var flags = Flags{}
-	parseFlags(&flags, e)
 
 	// Validate target URL
 	if anyFlagEmpty(*flags.Service, *flags.Target) {
@@ -135,7 +132,7 @@ func loadConfig() (EnvConfig, Flags) {
 
 	// Validate target URL
 	if anyFlagEmpty(*flags.Service, *flags.Target) {
-		log.Fatal("required parameter target (e.g. foo.eu-central-1.es.amazonaws.com) OR service (e.g. es) missing!")
+		Logger.Fatal("required parameter target (e.g. foo.eu-central-1.es.amazonaws.com) OR service (e.g. es) missing!")
 	}
 	return e, flags
 }
@@ -151,24 +148,15 @@ func parseEnvironmentVariables() (EnvConfig, error) {
 	switch e.CredentialsProvider {
 
 	case "oidc":
-		condParams := []string{
-			"ASP_OPEN_ID_AUTH_SERVER_URL",
-			"ASP_OPEN_ID_CLIENT_ID",
-			"ASP_OPEN_ID_CLIENT_SECRET",
-		}
-
-		for _, condParam := range condParams {
-			if len(strings.TrimSpace(os.Getenv(condParam))) == 0 {
-				err = errors.New(fmt.Sprintf("required key %s missing value", condParam))
-				return e, err
-			}
-		}
+		err = assertEnvVarsAreSet([]string{"ASP_OPEN_ID_AUTH_SERVER_URL", "ASP_OPEN_ID_CLIENT_ID", "ASP_OPEN_ID_CLIENT_SECRET"})
 		break
 	case "vault":
 		err = assertEnvVarsAreSet([]string{"ASP_VAULT_URL", "ASP_VAULT_PATH", "ASP_VAULT_AUTH_TOKEN"})
 		break
-	case "awstoken":
-		err = assertEnvVarsAreSet([]string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"})
+	case "irsa":
+		err = assertEnvVarsAreSet([]string{"ASP_IRSA_CLIENT_ID", "AWS_WEB_IDENTITY_TOKEN_FILE"})
+		break
+	default:
 		break
 	}
 
