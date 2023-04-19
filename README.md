@@ -33,7 +33,7 @@ Additionally, we provide a [Docker image](https://hub.docker.com/r/idealo/aws-si
 
 ### Breaking Changes
 
-* Command line flags are now kebab-case to be POSIX style guide compliant
+* Command line flags are not supported anymore, use env vars instead
 * `Health Port` is now called `Mgmt Port` 
   * it provides the `/status/health` endpoint for health probes and `/status/metrics` endpoint for prometheus metrics
 
@@ -71,7 +71,7 @@ aws-signing-proxy
 
 #### With Credentials via OIDC
 
-Execute the binary with either the required environment variables set or via cli flags:
+Execute the binary with either the required environment variables:
 
 ```
 ASP_CREDENTIALS_PROVIDER=oidc; \
@@ -85,7 +85,7 @@ aws-signing-proxy
 
 #### With Credentials via IRSA (IAM Roles for Service Accounts)
 
-Execute the binary with either the required environment variables set or via cli flags:
+Execute the binary with either the required environment variables:
 
 ```
 ASP_CREDENTIALS_PROVIDER=irsa; \
@@ -139,15 +139,15 @@ The timeout for keeping the circuit open defaults to 60s
 
 Sometimes it is crucial to have the credentials refreshed in the background to avoid a delay for the first-fetch-request
 
-You can enable this feature by setting the environment variable `ASP_ASYNC_OPEN_ID_CREDENTIALS_FETCH` or the flag `--async-open-id-creds-fetch` to true.
+You can enable this feature by setting the environment variable `ASP_ASYNC_OPEN_ID_CREDENTIALS_FETCH` to true.
 
 It will check every 10 seconds if the credentials are still valid and takes care of refreshing them in the background.
 
 #### Configure the Management Port and Metrics Path
 
-If you want to alter the default port `8081` for the `/status/health` and the `/status/metrics` path, you can do that via setting the environment variable `ASP_MGMT_PORT` or the flag `--mgmt-port` to the port you like.
+If you want to alter the default port `8081` for the `/status/health` and the `/status/metrics` path, you can do that via setting the environment variable `ASP_MGMT_PORT` to the port you like.
 
-To alter the prometheus metrics path, you can set the environment variable `ASP_METRICS_PATH` or use the flag `--metrics-path`
+To alter the prometheus metrics path, you can set the environment variable `ASP_METRICS_PATH`.
 
 ### Docker
 
