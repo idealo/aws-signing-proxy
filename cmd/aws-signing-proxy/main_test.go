@@ -37,6 +37,7 @@ func TestBasicMainIntegrationTest(t *testing.T) {
 	os.Setenv("ASP_TARGET_URL", "http://127.0.0.1:"+targetPort)
 	os.Setenv("ASP_SERVICE", "s3")
 	os.Setenv("AWS_REGION", "eu-central-1")
+	os.Setenv("ASP_CREDENTIALS_PROVIDER", "awstoken")
 
 	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAR")
