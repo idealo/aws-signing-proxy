@@ -96,6 +96,33 @@ aws-signing-proxy
 
 Make sure, your AWS_WEB_IDENTITY_TOKEN_FILE environment variable is set!
 
+#### Configuration Parameters
+
+The following configuration parameters are supported (as Environment Variables):
+
+| Parameter                           | required?                                    | Details                                                                                                                              | Default         |
+|-------------------------------------|----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|-----------------|
+| ASP_TARGET_URL                      | yes                                          | target url to proxy to (e.g. foo.eu-central-1.es.amazonaws.com)                                                                      | -               |
+| ASP_PORT                            | optional                                     | listening port for proxy (e.g. 8080)                                                                                                 | 8080            |
+| ASP_MGMT_PORT                       | optional                                     | management port for proxy (e.g. 8081)                                                                                                | 8081            |
+| ASP_SERVICE                         | optional                                     | AWS Service which is being proxied (e.g. es)                                                                                         | es              |
+| ASP_CREDENTIALS_PROVIDER            | yes                                          | either retrieve credentials via OpenID, IRSA or Vault. Valid values are: oidc, vault, irsa                                           | -               |
+| ASP_ROLE_ARN                        | yes, if OIDC or IRSA is Credentials Provider | AWS role ARN to assume to                                                                                                            | -               |
+| ASP_VAULT_URL                       | yes, if Vault is Credentials Provider        | base url of vault (e.g. 'https://foo.vault.invalid')                                                                                 | -               |
+| ASP_VAULT_PATH                      | yes, if Vault is Credentials Provider        | path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')                                                                   | -               |
+| ASP_VAULT_AUTH_TOKEN                | yes, if Vault is Credentials Provider        | token for authenticating with vault                                                                                                  | -               |
+| ASP_OPEN_ID_AUTH_SERVER_URL         | yes, if OIDC is Credentials Provider         | the authorization server url                                                                                                         | -               |
+| ASP_OPEN_ID_CLIENT_ID               | yes, if OIDC is Credentials Provider         | OAuth client id                                                                                                                      | -               |
+| ASP_OPEN_ID_CLIENT_SECRET           | yes, if OIDC is Credentials Provider         | OAuth client secret                                                                                                                  | -               |
+| ASP_ASYNC_OPEN_ID_CREDENTIALS_FETCH | optional                                     | whether or not to fetch AWS Credentials via OIDC asynchronously                                                                      | false           |
+| AWS_REGION                          | optional                                     | the AWS region to proxy to                                                                                                           | eu-central-1    |
+| ASP_METRICS_PATH                    | optional                                     | metrics path                                                                                                                         | /status/metrics |
+| ASP_FLUSH_INTERVAL                  | optional                                     | flush interval in seconds to flush to the client while copying the response body                                                     | 0               |
+| ASP_IDLE_CONN_TIMEOUT               | optional                                     | the maximum amount of time (in seconds) an idle (keep-alive) connection will remain idle before closing itself. zero means no limit. | 90              |
+| ASP_DIAL_TIMEOUT                    | optional                                     | the maximum amount of time (in seconds) a dial will wait for a connect to complete                                                   | 30              |
+
+Note that based on your choice for the credentials provider certain parameters become mandatory.
+
 #### Adjusting the Circuit Breaker Behaviour
 
 If you want to adjust the built-in authorization server circuit breaker, you can set the following environment variables according to your needs. 
