@@ -14,10 +14,15 @@ Supported AWS credentials:
 * Fetching short-lived credentials from AWS via a OAuth2 authorization server
   and [OpenID Connect (OIDC)](https://openid.net/connect/)
   * Additionally, you can fetch these credentials asynchronously
+* Fetching short-lived credentials via AWS [IRSA](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) (IAM Roles for Service Accounts)
 
 For ready-to-use binaries have a look at [Releases](https://github.com/idealo/aws-signing-proxy/releases).
 
 Additionally, we provide a [Docker image](https://hub.docker.com/r/idealo/aws-signing-proxy) which can be used as a sidecar in Kubernetes.
+
+
+## 🎉 Version 2.1.0 Update 🎉
+* Support for AWS [IRSA](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
 
 ## 🎉 Version 2.0.0 Update 🎉
 
@@ -77,6 +82,19 @@ ASP_OPEN_ID_CLIENT_ID=your-oauth2-client; \
 ASP_OPEN_ID_CLIENT_SECRET=someverysecurepassword; \
 aws-signing-proxy
 ```
+
+#### With Credentials via IRSA (IAM Roles for Service Accounts)
+
+Execute the binary with either the required environment variables set or via cli flags:
+
+```
+ASP_CREDENTIALS_PROVIDER=irsa; \
+ASP_TARGET_URL=https://someAWSServiceSupportingSignedHttpRequests; \
+ASP_ROLE_ARN=arn:aws:iam::123456242:role/some-access-role; \
+aws-signing-proxy
+```
+
+Make sure, your AWS_WEB_IDENTITY_TOKEN_FILE environment variable is set!
 
 #### Adjusting the Circuit Breaker Behaviour
 

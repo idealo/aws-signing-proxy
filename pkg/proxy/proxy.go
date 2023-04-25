@@ -8,7 +8,7 @@ import (
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	. "github.com/idealo/aws-signing-proxy/pkg/logging"
 	"go.uber.org/zap"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -104,11 +104,11 @@ func director(config Config) func(req *http.Request) {
 		// This drains the body from the original (proxied) request.
 		// To fix, we replace req.Body with a copy (NopCloser provides io.ReadCloser interface)
 		if req.Body != nil {
-			buf, err := ioutil.ReadAll(req.Body)
+			buf, err := io.ReadAll(req.Body)
 			if err != nil {
 				Logger.Error("Error reading request body", zap.Error(err))
 			}
-			req.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
+			req.Body = io.NopCloser(bytes.NewBuffer(buf))
 
 			awsReq.SetBufferBody(buf)
 		}
