@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -36,6 +37,7 @@ func TestBasicMainIntegrationTest(t *testing.T) {
 	os.Setenv("ASP_TARGET_URL", "http://127.0.0.1:"+targetPort)
 	os.Setenv("ASP_SERVICE", "s3")
 	os.Setenv("AWS_REGION", "eu-central-1")
+	os.Setenv("ASP_CREDENTIALS_PROVIDER", "awstoken")
 
 	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAR")
@@ -73,6 +75,125 @@ func TestBasicMainIntegrationTest(t *testing.T) {
 		t.Fatalf("Prometheus Metrics endpoint is broken!\nWanted: HTTP Status Code 200\nGot: HTTP Status Code %d", resp.StatusCode)
 	}
 
+}
+
+func TestRequiredParamsAreChecked(t *testing.T) {
+	testCases := []struct {
+		envVarName string
+		required   bool
+	}{
+		{"ASP_TARGET_URL", true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%s is required %t", tc.envVarName, tc.required), func(t *testing.T) {
+			os.Setenv("ASP_TARGET_URL", "http://127.0.0.1:1337")
+
+			os.Unsetenv(tc.envVarName)
+
+			_, err := parseEnvironmentVariables()
+			if tc.required {
+				if err == nil || err.Error() != fmt.Sprintf("required key %s missing value", tc.envVarName) {
+					t.Fatal(fmt.Sprintf("Fail: omitting the required parameter %s did not lead to a parsing failure.", tc.envVarName))
+				}
+			} else {
+				if err != nil {
+					handleError(err)
+				}
+			}
+		})
+
+	}
+}
+
+func TestRequiredParamsForOIDCAreChecked(t *testing.T) {
+	testCases := []struct {
+		envVarName string
+		required   bool
+	}{
+		{"ASP_OPEN_ID_AUTH_SERVER_URL", true},
+		{"ASP_OPEN_ID_CLIENT_ID", true},
+		{"ASP_OPEN_ID_CLIENT_SECRET", true},
+		{"ASP_ROLE_ARN", true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%s is required %t", tc.envVarName, tc.required), func(t *testing.T) {
+			os.Setenv("ASP_TARGET_URL", "http://127.0.0.1:1337")
+			os.Setenv("ASP_CREDENTIALS_PROVIDER", "oidc")
+
+			os.Setenv("ASP_OPEN_ID_AUTH_SERVER_URL", "FOORL")
+			os.Setenv("ASP_OPEN_ID_CLIENT_ID", "FOO")
+			os.Setenv("ASP_OPEN_ID_CLIENT_SECRET", "BAR")
+			os.Setenv("ASP_ROLE_ARN", "FOO::ARN")
+
+			os.Unsetenv(tc.envVarName)
+
+			_, err := parseEnvironmentVariables()
+			if tc.required {
+				if err == nil || err.Error() != fmt.Sprintf("required key %s missing value", tc.envVarName) {
+					t.Fatal(fmt.Sprintf("Fail: omitting the required parameter %s did not lead to a parsing failure.", tc.envVarName))
+				}
+			} else {
+				if err != nil {
+					handleError(err)
+				}
+			}
+		})
+
+	}
+}
+
+func TestRequiredParamsForVaultAreChecked(t *testing.T) {
+	requiredParams := []string{
+		"ASP_VAULT_URL",
+		"ASP_VAULT_PATH",
+		"ASP_VAULT_AUTH_TOKEN",
+	}
+
+	for _, rp := range requiredParams {
+		t.Run(fmt.Sprintf("%s is required", rp), func(t *testing.T) {
+			os.Setenv("ASP_TARGET_URL", "http://127.0.0.1:1337")
+			os.Setenv("ASP_CREDENTIALS_PROVIDER", "vault")
+
+			os.Setenv("ASP_VAULT_URL", "FOORL")
+			os.Setenv("ASP_VAULT_PATH", "/foo/bar")
+			os.Setenv("ASP_VAULT_AUTH_TOKEN", "secret")
+
+			os.Unsetenv(rp)
+
+			_, err := parseEnvironmentVariables()
+			if err == nil || err.Error() != fmt.Sprintf("required key %s missing value", rp) {
+				t.Fatal(fmt.Sprintf("Fail: omitting the required parameter %s did not lead to a parsing failure.", rp))
+			}
+		})
+	}
+}
+
+func TestRequiredParamsForIrsaAreChecked(t *testing.T) {
+	requiredParams := []string{
+		"ASP_IRSA_CLIENT_ID",
+		"AWS_WEB_IDENTITY_TOKEN_FILE",
+		"ASP_ROLE_ARN",
+	}
+
+	for _, rp := range requiredParams {
+		t.Run(fmt.Sprintf("%s is required", rp), func(t *testing.T) {
+			os.Setenv("ASP_TARGET_URL", "http://127.0.0.1:1337")
+			os.Setenv("ASP_CREDENTIALS_PROVIDER", "irsa")
+
+			os.Setenv("ASP_IRSA_CLIENT_ID", "FOO")
+			os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/foo/bar")
+			os.Setenv("ASP_ROLE_ARN", "FOO::ARN")
+
+			os.Unsetenv(rp)
+
+			_, err := parseEnvironmentVariables()
+			if err == nil || err.Error() != fmt.Sprintf("required key %s missing value", rp) {
+				t.Fatal(fmt.Sprintf("Fail: omitting the required parameter %s did not lead to a parsing failure.", rp))
+			}
+		})
+	}
 }
 
 func handleError(err error) {

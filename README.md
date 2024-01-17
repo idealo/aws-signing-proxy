@@ -33,7 +33,7 @@ Additionally, we provide a [Docker image](https://hub.docker.com/r/idealo/aws-si
 
 ### Breaking Changes
 
-* Command line flags are now kebab-case to be POSIX style guide compliant
+* Command line flags are not supported anymore, use env vars instead
 * `Health Port` is now called `Mgmt Port` 
   * it provides the `/status/health` endpoint for health probes and `/status/metrics` endpoint for prometheus metrics
 
@@ -71,7 +71,7 @@ aws-signing-proxy
 
 #### With Credentials via OIDC
 
-Execute the binary with either the required environment variables set or via cli flags:
+Execute the binary with either the required environment variables:
 
 ```
 ASP_CREDENTIALS_PROVIDER=oidc; \
@@ -85,7 +85,7 @@ aws-signing-proxy
 
 #### With Credentials via IRSA (IAM Roles for Service Accounts)
 
-Execute the binary with either the required environment variables set or via cli flags:
+Execute the binary with either the required environment variables:
 
 ```
 ASP_CREDENTIALS_PROVIDER=irsa; \
@@ -95,6 +95,34 @@ aws-signing-proxy
 ```
 
 Make sure, your AWS_WEB_IDENTITY_TOKEN_FILE environment variable is set!
+
+#### Configuration Parameters
+
+The following configuration parameters are supported (as Environment Variables):
+
+| Parameter                           | required?                                    | Details                                                                                                                                                                                                                 | Default         |
+|-------------------------------------|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
+| ASP_TARGET_URL                      | yes                                          | target url to proxy to (e.g. foo.eu-central-1.es.amazonaws.com)                                                                                                                                                         | -               |
+| ASP_PORT                            | optional                                     | listening port for proxy (e.g. 8080)                                                                                                                                                                                    | 8080            |
+| ASP_MGMT_PORT                       | optional                                     | management port for proxy (e.g. 8081)                                                                                                                                                                                   | 8081            |
+| ASP_SERVICE                         | optional                                     | AWS Service which is being proxied (e.g. es)                                                                                                                                                                            | es              |
+| ASP_CREDENTIALS_PROVIDER            | yes                                          | either retrieve credentials via OpenID, IRSA, Vault or use local AWS token credentials (by setting `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`). Valid values are: oidc, vault, irsa, awstoken | -               |
+| ASP_ROLE_ARN                        | yes, if OIDC or IRSA is Credentials Provider | AWS role ARN to assume to                                                                                                                                                                                               | -               |
+| ASP_VAULT_URL                       | yes, if Vault is Credentials Provider        | base url of vault (e.g. 'https://foo.vault.invalid')                                                                                                                                                                    | -               |
+| ASP_VAULT_PATH                      | yes, if Vault is Credentials Provider        | path for credentials (e.g. '/some-aws-engine/creds/some-aws-role')                                                                                                                                                      | -               |
+| ASP_VAULT_AUTH_TOKEN                | yes, if Vault is Credentials Provider        | token for authenticating with vault                                                                                                                                                                                     | -               |
+| ASP_OPEN_ID_AUTH_SERVER_URL         | yes, if OIDC is Credentials Provider         | the authorization server url                                                                                                                                                                                            | -               |
+| ASP_OPEN_ID_CLIENT_ID               | yes, if OIDC is Credentials Provider         | OAuth client id                                                                                                                                                                                                         | -               |
+| ASP_OPEN_ID_CLIENT_SECRET           | yes, if OIDC is Credentials Provider         | OAuth client secret                                                                                                                                                                                                     | -               |
+| ASP_IRSA_CLIENT_ID                  | yes, if IRSA is Credentials Provider         | IRSA client id                                                                                                                                                                                                          | -               |
+| ASP_ASYNC_OPEN_ID_CREDENTIALS_FETCH | optional                                     | whether or not to fetch AWS Credentials via OIDC asynchronously                                                                                                                                                         | false           |
+| AWS_REGION                          | optional                                     | the AWS region to proxy to                                                                                                                                                                                              | eu-central-1    |
+| ASP_METRICS_PATH                    | optional                                     | metrics path                                                                                                                                                                                                            | /status/metrics |
+| ASP_FLUSH_INTERVAL                  | optional                                     | flush interval in seconds to flush to the client while copying the response body                                                                                                                                        | 0s              |
+| ASP_IDLE_CONN_TIMEOUT               | optional                                     | the maximum amount of time an idle (keep-alive) connection will remain idle before closing itself. zero means no limit.                                                                                                 | 90s             |
+| ASP_DIAL_TIMEOUT                    | optional                                     | the maximum amount of time a dial will wait for a connect to complete                                                                                                                                                   | 30s             |
+
+Note that based on your choice for the credentials provider certain parameters become mandatory.
 
 #### Adjusting the Circuit Breaker Behaviour
 
@@ -111,15 +139,15 @@ The timeout for keeping the circuit open defaults to 60s
 
 Sometimes it is crucial to have the credentials refreshed in the background to avoid a delay for the first-fetch-request
 
-You can enable this feature by setting the environment variable `ASP_ASYNC_OPEN_ID_CREDENTIALS_FETCH` or the flag `--async-open-id-creds-fetch` to true.
+You can enable this feature by setting the environment variable `ASP_ASYNC_OPEN_ID_CREDENTIALS_FETCH` to true.
 
 It will check every 10 seconds if the credentials are still valid and takes care of refreshing them in the background.
 
 #### Configure the Management Port and Metrics Path
 
-If you want to alter the default port `8081` for the `/status/health` and the `/status/metrics` path, you can do that via setting the environment variable `ASP_MGMT_PORT` or the flag `--mgmt-port` to the port you like.
+If you want to alter the default port `8081` for the `/status/health` and the `/status/metrics` path, you can do that via setting the environment variable `ASP_MGMT_PORT` to the port you like.
 
-To alter the prometheus metrics path, you can set the environment variable `ASP_METRICS_PATH` or use the flag `--metrics-path`
+To alter the prometheus metrics path, you can set the environment variable `ASP_METRICS_PATH`.
 
 ### Docker
 
